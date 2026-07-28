@@ -183,15 +183,13 @@ app.put('/api/tracks/:id', async (req, res) => {
     }
 });
 
-// Удалить трек (ИСПРАВЛЕНО ПАДЕНИЕ С МАССИВОМ ROWS)
 app.delete('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        
         const track = await pool.query('SELECT artist FROM public.tracks WHERE id = $1', [id]);
         if (track.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         
-        const artistName = track.rows[0].artist; // Исправлено здесь: rows[0] вместо rows
+        const artistName = track.rows[0].artist; // ИСПРАВЛЕНО: добавлен индекс [0]
         
         const result = await pool.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
         
@@ -199,13 +197,13 @@ app.delete('/api/tracks/:id', async (req, res) => {
             'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
             [artistName]
         );
-        
         res.json({ message: 'Track deleted', track: result.rows[0] });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
+
 
 // ===================== FILE UPLOAD =====================
 
