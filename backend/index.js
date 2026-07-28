@@ -6,7 +6,11 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Настройка multer для загрузки файлов
@@ -92,10 +96,10 @@ app.get('/api/artists', async (req, res) => {
 
 app.post('/api/artists', async (req, res) => {
     try {
-        const { artist, trackscount, about } = req.body;
+        const { artist, trackscount, about, photo_url } = req.body;
         const result = await pool.query(
-            'INSERT INTO public.artists (artist, trackscount, about) VALUES ($1, $2, $3) RETURNING *',
-            [artist, trackscount || 0, about || '']
+            'INSERT INTO public.artists (artist, trackscount, about, photo_url) VALUES ($1, $2, $3, $4) RETURNING *',
+            [artist, trackscount || 0, about || '', photo_url || '']
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {

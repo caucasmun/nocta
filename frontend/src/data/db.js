@@ -2,7 +2,7 @@
 import * as api from './api';
 
 const SESSION_KEY = 'nocta_session';
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || 'https://nocta-backend-3dqm.onrender.com';
 
 // ===== Session =====
 export function saveSession(user) {

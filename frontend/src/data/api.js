@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const RAW_API = import.meta.env.VITE_API_URL || 'https://nocta-backend-3dqm.onrender.com';
+const API_BASE = RAW_API.endsWith('/api') ? RAW_API : `${RAW_API.replace(/\/$/, '')}/api`;
 
 async function request(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;

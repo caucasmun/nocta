@@ -5,8 +5,8 @@ import { useAudio } from '../../context/AudioContext';
 import { uploadAudio, uploadImage } from '../../data/api';
 import cn from './AddContent.module.css';
 
-// Базовый URL вашего Express-сервера на Render
-const API_BASE_URL = 'https://onrender.com';
+// Базовый URL Express-сервера на Render
+const API_BASE_URL = 'https://nocta-backend-3dqm.onrender.com';
 
 function AddContent() {
     const { user } = useAuth();
