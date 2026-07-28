@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const pool = require('./db');
 const cors = require('cors');
@@ -12,6 +14,16 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+// Проверка живости API и БД (удобно для Render / локального теста)
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ ok: true, db: 'up' });
+    } catch (err) {
+        res.status(503).json({ ok: false, db: 'down', error: err.message });
+    }
+});
 
 // Настройка multer для загрузки файлов
 const uploadsDir = path.join(__dirname, 'uploads');

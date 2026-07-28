@@ -2,11 +2,11 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { uploadAudio, uploadImage } from '../../data/api';
+import { uploadAudio, uploadImage, API_ORIGIN } from '../../data/api';
 import cn from './AddContent.module.css';
 
-// Базовый URL Express-сервера на Render
-const API_BASE_URL = 'https://nocta-backend-3dqm.onrender.com';
+// Берётся из VITE_API_URL (локально http://localhost:5000, прод — Render)
+const API_BASE_URL = API_ORIGIN;
 
 function AddContent() {
     const { user } = useAuth();
