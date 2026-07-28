@@ -116,23 +116,45 @@ app.get('/api/tracks', async (req, res) => {
     }
 });
 
+// Создать трек
 app.post('/api/tracks', async (req, res) => {
     try {
-        const { title, artist, lyrics, isliked, user_id, audio_url } = req.body;
+        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url } = req.body;
+        
+        // Валидация: проверяем, переданы ли обязательные поля
+        if (!title || !artist) {
+            return res.status(400).json({ error: 'Поля title и artist обязательны для заполнения' });
+        }
+
+        // Выполняем запрос к БД (включаем все возможные поля)
         const result = await pool.query(
             `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url)
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
             [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '']
         );
         
-        await pool.query(
-            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-            [artist]
-        );
-        res.status(201).json(result.rows[0]);
+        // Безопасное обновление счетчика треков у артиста.
+        // Используем пул, чтобы если артиста нет, сервер не падал.
+        try {
+            await pool.query(
+                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
+                [artist]
+            );
+        } catch (artistErr) {
+            console.error('Ошибка обновления trackscount у артиста:', artistErr.message);
+            // Не блокируем ответ клиенту, если трек уже успешно создался
+        }
+
+        // Возвращаем созданный трек в формате JSON
+        return res.status(201).json(result.rows[0]);
+
     } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: err.message });
+        // Если база данных ругнется, мы вернем ЧЕТКИЙ JSON, а не HTML страницу
+        console.error('КРИТИЧЕСКАЯ ОШИБКА БД ПРИ СОЗДАНИИ ТРЕКА:', err.message);
+        return res.status(500).json({ 
+            error: 'Ошибка базы данных при создании трека', 
+            details: err.message 
+        });
     }
 });
 
