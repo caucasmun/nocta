@@ -5,6 +5,9 @@ import { useAudio } from '../../context/AudioContext';
 import { uploadAudio, uploadImage } from '../../data/api';
 import cn from './AddContent.module.css';
 
+// Базовый URL вашего Express-сервера на Render
+const API_BASE_URL = 'https://onrender.com';
+
 function AddContent() {
     const { user } = useAuth();
     const { reloadTracks } = useAudio();
@@ -32,7 +35,7 @@ function AddContent() {
 
     if (!user) {
         return (
-            <section className={section.add}>
+            <section className={cn.add}>
                 <div className={cn.empty}>
                     <p className={cn.emptyTitle}>Войдите, чтобы добавлять контент</p>
                     <button className={cn.loginBtn} onClick={() => navigate('/auth')}>Войти</button>
@@ -109,13 +112,10 @@ function AddContent() {
 
         try {
             setProgress(20);
-            
-            // --- 1. ЗАГРУЗКА АУДИОФАЙЛА НА СЕРВЕР ---
             const audioData = await uploadAudio(audioFile);
             const audioUrl = audioData.url; 
             setProgress(50);
 
-            // --- 2. ЗАГРУЗКА ОБЛОЖКИ НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             let coverUrl = '';
             if (coverFile) {
                 const coverData = await uploadImage(coverFile);
@@ -123,7 +123,6 @@ function AddContent() {
             }
             setProgress(80);
 
-            // --- 3. СОХРАНЕНИЕ ТРЕКА В БД ПОД СТРОКОВЫМИ ССЫЛКАМИ (JSON) ---
             const trackData = {
                 title: title.trim(),
                 artist: artist.trim(),
@@ -134,7 +133,7 @@ function AddContent() {
                 cover_url: coverUrl 
             };
 
-            const trackRes = await fetch('/api/tracks', {
+            const trackRes = await fetch(`${API_BASE_URL}/api/tracks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -149,7 +148,6 @@ function AddContent() {
 
             reloadTracks();
 
-            // Очистка полей формы при успешном завершении
             setTitle('');
             setArtist('');
             setColor('#1db954');
@@ -181,21 +179,19 @@ function AddContent() {
 
         try {
             let photoUrl = '';
-            
-            // --- 1. ЗАГРУЗКА АРТИСТА НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             if (artistPhotoFile) {
                 const photoData = await uploadImage(artistPhotoFile);
                 photoUrl = photoData.url;
             }
 
-            // --- 2. СОХРАНЕНИЕ АРТИСТА В БД ЧЕРЕЗ JSON ---
             const artistData = {
                 artist: artistName.trim(), 
                 about: artistBio.trim(),   
-                trackscount: 0
+                trackscount: 0,
+                photo_url: photoUrl
             };
 
-            const artistRes = await fetch('/api/artists', {
+            const artistRes = await fetch(`${API_BASE_URL}/api/artists`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
