@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
+import { uploadAudio, uploadImage } from '../../data/api';
 import cn from './AddContent.module.css';
 
 function AddContent() {
@@ -110,40 +111,14 @@ function AddContent() {
             setProgress(20);
             
             // --- 1. ЗАГРУЗКА АУДИОФАЙЛА НА СЕРВЕР ---
-            const audioFormData = new FormData();
-            audioFormData.append('audio', audioFile);
-
-            const audioRes = await fetch('https://onrender.com', {
-                method: 'POST',
-                body: audioFormData,
-            });
-
-            if (!audioRes.ok) {
-                const errData = await audioRes.json().catch(() => ({}));
-                throw new Error(errData.error || 'Не удалось загрузить аудиофайл на сервер');
-            }
-
-            const audioData = await audioRes.json();
+            const audioData = await uploadAudio(audioFile);
             const audioUrl = audioData.url; 
             setProgress(50);
 
             // --- 2. ЗАГРУЗКА ОБЛОЖКИ НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             let coverUrl = '';
             if (coverFile) {
-                const coverFormData = new FormData();
-                coverFormData.append('cover', coverFile);
-
-                const coverRes = await fetch('https://onrender.com', {
-                    method: 'POST',
-                    body: coverFormData,
-                });
-
-                if (!coverRes.ok) {
-                    const errData = await coverRes.json().catch(() => ({}));
-                    throw new Error(errData.error || 'Не удалось загрузить обложку на сервер');
-                }
-
-                const coverData = await coverRes.json();
+                const coverData = await uploadImage(coverFile);
                 coverUrl = coverData.url;
             }
             setProgress(80);
@@ -159,7 +134,7 @@ function AddContent() {
                 cover_url: coverUrl 
             };
 
-            const trackRes = await fetch('https://onrender.com', {
+            const trackRes = await fetch('/api/tracks', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -209,20 +184,7 @@ function AddContent() {
             
             // --- 1. ЗАГРУЗКА АРТИСТА НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             if (artistPhotoFile) {
-                const artistFormData = new FormData();
-                artistFormData.append('cover', artistPhotoFile); 
-
-                const photoRes = await fetch('https://onrender.com', {
-                    method: 'POST',
-                    body: artistFormData,
-                });
-
-                if (!photoRes.ok) {
-                    const errData = await photoRes.json().catch(() => ({}));
-                    throw new Error(errData.error || 'Не удалось загрузить фото артиста');
-                }
-
-                const photoData = await photoRes.json();
+                const photoData = await uploadImage(artistPhotoFile);
                 photoUrl = photoData.url;
             }
 
@@ -233,7 +195,7 @@ function AddContent() {
                 trackscount: 0
             };
 
-            const artistRes = await fetch('https://onrender.com', {
+            const artistRes = await fetch('/api/artists', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

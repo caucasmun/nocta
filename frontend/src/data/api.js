@@ -139,3 +139,35 @@ export async function removeArtistFromLibrary(userId, artistId) {
         method: 'DELETE',
     });
 }
+
+// ==================== FILE UPLOADS ====================
+
+export async function uploadAudio(file) {
+    const url = `${API_BASE}/upload/audio`;
+    const formData = new FormData();
+    formData.append('audio', file);
+    
+    const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to upload audio');
+    return data;
+}
+
+export async function uploadImage(file) {
+    const url = `${API_BASE}/upload/image`;
+    const formData = new FormData();
+    formData.append('cover', file);
+    
+    const res = await fetch(url, {
+        method: 'POST',
+        body: formData,
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+    return data;
+}
