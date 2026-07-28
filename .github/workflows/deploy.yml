@@ -30,7 +30,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://nocta-y1c2.onrender.com' }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://nocta-backend-3dqm.onrender.com' }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
