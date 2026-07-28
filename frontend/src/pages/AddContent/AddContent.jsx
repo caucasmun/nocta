@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { addTrack, addArtist, storeFile } from '../../data/db';
 import cn from './AddContent.module.css';
 
 function AddContent() {
@@ -32,7 +31,7 @@ function AddContent() {
 
     if (!user) {
         return (
-            <section className={cn.add}>
+            <section className={section.add}>
                 <div className={cn.empty}>
                     <p className={cn.emptyTitle}>Войдите, чтобы добавлять контент</p>
                     <button className={cn.loginBtn} onClick={() => navigate('/auth')}>Войти</button>
@@ -108,39 +107,87 @@ function AddContent() {
         setProgress(10);
 
         try {
-            setProgress(30);
-            const audioUrl = await storeFile(audioFile);
+            setProgress(20);
             
-            setProgress(60);
+            // --- 1. ЗАГРУЗКА АУДИОФАЙЛА НА СЕРВЕР ---
+            const audioFormData = new FormData();
+            audioFormData.append('audio', audioFile);
+
+            const audioRes = await fetch('https://onrender.com', {
+                method: 'POST',
+                body: audioFormData,
+            });
+
+            if (!audioRes.ok) {
+                const errData = await audioRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Не удалось загрузить аудиофайл на сервер');
+            }
+
+            const audioData = await audioRes.json();
+            const audioUrl = audioData.url; 
+            setProgress(50);
+
+            // --- 2. ЗАГРУЗКА ОБЛОЖКИ НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             let coverUrl = '';
             if (coverFile) {
-                coverUrl = await storeFile(coverFile);
-            }
-            setProgress(85);
+                const coverFormData = new FormData();
+                coverFormData.append('cover', coverFile);
 
+                const coverRes = await fetch('https://onrender.com', {
+                    method: 'POST',
+                    body: coverFormData,
+                });
+
+                if (!coverRes.ok) {
+                    const errData = await coverRes.json().catch(() => ({}));
+                    throw new Error(errData.error || 'Не удалось загрузить обложку на сервер');
+                }
+
+                const coverData = await coverRes.json();
+                coverUrl = coverData.url;
+            }
+            setProgress(80);
+
+            // --- 3. СОХРАНЕНИЕ ТРЕКА В БД ПОД СТРОКОВЫМИ ССЫЛКАМИ (JSON) ---
             const trackData = {
                 title: title.trim(),
                 artist: artist.trim(),
-                audio_url: audioUrl,
-                cover: coverUrl || '',
-                color: coverPreview ? '' : color,
                 lyrics: lyrics.trim(),
+                isliked: false,
+                user_id: user.id,
+                audio_url: audioUrl,
+                cover_url: coverUrl 
             };
 
-            await addTrack(user.id, trackData);
+            const trackRes = await fetch('https://onrender.com', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(trackData),
+            });
+
+            if (!trackRes.ok) {
+                const errData = await trackRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Не удалось сохранить трек в базу данных');
+            }
+
             reloadTracks();
 
+            // Очистка полей формы при успешном завершении
             setTitle('');
             setArtist('');
             setColor('#1db954');
             setAudioFile(null);
             setCoverFile(null);
             setCoverPreview('');
+            setLyrics('');
             setProgress(100);
             setSuccess(`Трек "${title.trim()}" добавлен!`);
             setTimeout(() => { setSuccess(''); setProgress(0); }, 3000);
         } catch (err) {
-            setError('Ошибка при загрузке: ' + err.message);
+            console.error(err);
+            setError(err.message);
             setProgress(0);
         } finally {
             setIsUploading(false);
@@ -159,17 +206,45 @@ function AddContent() {
 
         try {
             let photoUrl = '';
+            
+            // --- 1. ЗАГРУЗКА АРТИСТА НА СЕРВЕР (ЕСЛИ ЕСТЬ) ---
             if (artistPhotoFile) {
-                photoUrl = await storeFile(artistPhotoFile);
+                const artistFormData = new FormData();
+                artistFormData.append('cover', artistPhotoFile); 
+
+                const photoRes = await fetch('https://onrender.com', {
+                    method: 'POST',
+                    body: artistFormData,
+                });
+
+                if (!photoRes.ok) {
+                    const errData = await photoRes.json().catch(() => ({}));
+                    throw new Error(errData.error || 'Не удалось загрузить фото артиста');
+                }
+
+                const photoData = await photoRes.json();
+                photoUrl = photoData.url;
             }
 
-            await addArtist(user.id, {
-                name: artistName.trim(),
-                bio: artistBio.trim(),
-                color: artistColor,
-                photo: photoUrl,
-                tracks: [],
+            // --- 2. СОХРАНЕНИЕ АРТИСТА В БД ЧЕРЕЗ JSON ---
+            const artistData = {
+                artist: artistName.trim(), 
+                about: artistBio.trim(),   
+                trackscount: 0
+            };
+
+            const artistRes = await fetch('https://onrender.com', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(artistData),
             });
+
+            if (!artistRes.ok) {
+                const errData = await artistRes.json().catch(() => ({}));
+                throw new Error(errData.error || 'Не удалось сохранить артиста в базу данных');
+            }
 
             setArtistName('');
             setArtistBio('');
@@ -179,7 +254,8 @@ function AddContent() {
             setSuccess(`Исполнитель "${artistName.trim()}" добавлен!`);
             setTimeout(() => setSuccess(''), 3000);
         } catch (err) {
-            setError('Ошибка при загрузке фото: ' + err.message);
+            console.error(err);
+            setError(err.message);
         } finally {
             setIsUploading(false);
         }
@@ -295,3 +371,4 @@ function AddContent() {
 }
 
 export default AddContent;
+

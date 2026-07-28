@@ -106,6 +106,7 @@ app.post('/api/artists', async (req, res) => {
 
 // ===================== TRACKS =====================
 
+// Получить все треки
 app.get('/api/tracks', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM public.tracks ORDER BY id');
@@ -116,52 +117,43 @@ app.get('/api/tracks', async (req, res) => {
     }
 });
 
-// Создать трек
+// Создать трек (ПРИНИМАЕТ ТОЛЬКО JSON)
 app.post('/api/tracks', async (req, res) => {
     try {
         const { title, artist, lyrics, isliked, user_id, audio_url, cover_url } = req.body;
         
-        // Валидация: проверяем, переданы ли обязательные поля
         if (!title || !artist) {
-            return res.status(400).json({ error: 'Поля title и artist обязательны для заполнения' });
+            return res.status(400).json({ error: 'Поля title и artist обязательны' });
         }
 
-        // Выполняем запрос к БД (включаем все возможные поля)
         const result = await pool.query(
-            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url)
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '']
+            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url, cover_url)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '']
         );
         
-        // Безопасное обновление счетчика треков у артиста.
-        // Используем пул, чтобы если артиста нет, сервер не падал.
+        // Безопасное обновление счетчика у артиста
         try {
             await pool.query(
                 'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
                 [artist]
             );
-        } catch (artistErr) {
-            console.error('Ошибка обновления trackscount у артиста:', artistErr.message);
-            // Не блокируем ответ клиенту, если трек уже успешно создался
+        } catch (e) {
+            console.error('Не удалось обновить счетчик артиста:', e.message);
         }
 
-        // Возвращаем созданный трек в формате JSON
-        return res.status(201).json(result.rows[0]);
-
+        res.status(201).json(result.rows[0]);
     } catch (err) {
-        // Если база данных ругнется, мы вернем ЧЕТКИЙ JSON, а не HTML страницу
-        console.error('КРИТИЧЕСКАЯ ОШИБКА БД ПРИ СОЗДАНИИ ТРЕКА:', err.message);
-        return res.status(500).json({ 
-            error: 'Ошибка базы данных при создании трека', 
-            details: err.message 
-        });
+        console.error('Ошибка БД:', err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
+// Обновить трек
 app.put('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, artist, lyrics, isliked, user_id, audio_url } = req.body;
+        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url } = req.body;
         
         const result = await pool.query(
             `UPDATE public.tracks SET
@@ -170,9 +162,10 @@ app.put('/api/tracks/:id', async (req, res) => {
                 lyrics = COALESCE($3, lyrics),
                 isliked = COALESCE($4, isliked),
                 user_id = COALESCE($5, user_id),
-                audio_url = COALESCE($6, audio_url)
-             WHERE id = $7 RETURNING *`,
-            [title, artist, lyrics, isliked, user_id, audio_url, id]
+                audio_url = COALESCE($6, audio_url),
+                cover_url = COALESCE($7, cover_url)
+             WHERE id = $8 RETURNING *`,
+            [title, artist, lyrics, isliked, user_id, audio_url, cover_url, id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         
@@ -190,6 +183,7 @@ app.put('/api/tracks/:id', async (req, res) => {
     }
 });
 
+// Удалить трек (ИСПРАВЛЕНО ПАДЕНИЕ С МАССИВОМ ROWS)
 app.delete('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -197,7 +191,7 @@ app.delete('/api/tracks/:id', async (req, res) => {
         const track = await pool.query('SELECT artist FROM public.tracks WHERE id = $1', [id]);
         if (track.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         
-        const artistName = track.rows[0].artist; // Исправлено: добавлено [0]
+        const artistName = track.rows[0].artist; // Исправлено здесь: rows[0] вместо rows
         
         const result = await pool.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
         
@@ -212,6 +206,33 @@ app.delete('/api/tracks/:id', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ===================== FILE UPLOAD =====================
+
+// Загрузка аудиофайла (возвращает ТОЛЬКО урл)
+app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl }); // Фронтенд возьмет эту строку
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Загрузка обложки
+app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl }); // Фронтенд возьмет эту строку
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 // ===================== USER LIBRARY TRACKS =====================
 
