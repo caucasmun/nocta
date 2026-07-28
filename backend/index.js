@@ -37,12 +37,11 @@ const upload = multer({
     }
 });
 
-// Раздача статических файлов (загруженные аудио и обложки)
+// Раздача статических файлов
 app.use('/uploads', express.static(uploadsDir));
 
 // ===================== USERS =====================
 
-// Получить всех пользователей
 app.get('/api/users', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM public.users ORDER BY id');
@@ -53,7 +52,6 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// Получить пользователя по ID
 app.get('/api/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -66,7 +64,6 @@ app.get('/api/users/:id', async (req, res) => {
     }
 });
 
-// Создать пользователя
 app.post('/api/users', async (req, res) => {
     try {
         const { username } = req.body;
@@ -81,13 +78,69 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
-// Обновить трек
+// ===================== ARTISTS =====================
+
+app.get('/api/artists', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM public.artists ORDER BY id');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/artists', async (req, res) => {
+    try {
+        const { artist, trackscount, about } = req.body;
+        const result = await pool.query(
+            'INSERT INTO public.artists (artist, trackscount, about) VALUES ($1, $2, $3) RETURNING *',
+            [artist, trackscount || 0, about || '']
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===================== TRACKS =====================
+
+app.get('/api/tracks', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM public.tracks ORDER BY id');
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/tracks', async (req, res) => {
+    try {
+        const { title, artist, lyrics, isliked, user_id, audio_url } = req.body;
+        const result = await pool.query(
+            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '']
+        );
+        
+        await pool.query(
+            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
+            [artist]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.put('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { title, artist, lyrics, isliked, user_id, audio_url } = req.body;
         
-        // Используем COALESCE для защиты от undefined, но позволяем изменять данные
         const result = await pool.query(
             `UPDATE public.tracks SET
                 title = COALESCE($1, title),
@@ -101,7 +154,6 @@ app.put('/api/tracks/:id', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         
-        // Синхронизируем счетчик треков у нового артиста (если артист поменялся)
         if (artist) {
             await pool.query(
                 'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
@@ -116,21 +168,17 @@ app.put('/api/tracks/:id', async (req, res) => {
     }
 });
 
-// Удалить трек
 app.delete('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
         
-        // Сначала получаем имя артиста удаляемого трека
         const track = await pool.query('SELECT artist FROM public.tracks WHERE id = $1', [id]);
         if (track.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         
-        const artistName = track.rows[0].artist;
+        const artistName = track.rows[0].artist; // Исправлено: добавлено [0]
         
-        // Удаляем трек
         const result = await pool.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
         
-        // Обновляем trackscount у артиста
         await pool.query(
             'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
             [artistName]
@@ -145,7 +193,6 @@ app.delete('/api/tracks/:id', async (req, res) => {
 
 // ===================== USER LIBRARY TRACKS =====================
 
-// Получить библиотеку треков пользователя
 app.get('/api/users/:userId/library/tracks', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -163,13 +210,11 @@ app.get('/api/users/:userId/library/tracks', async (req, res) => {
     }
 });
 
-// Добавить трек в библиотеку пользователя (Безопасный INSERT)
 app.post('/api/users/:userId/library/tracks', async (req, res) => {
     try {
         const { userId } = req.params;
         const { track_id } = req.body;
         
-        // ON CONFLICT предотвратит падение, если трек уже добавлен
         const result = await pool.query(
             `INSERT INTO public.user_library_tracks (user_id, track_id) 
              VALUES ($1, $2) 
@@ -189,7 +234,6 @@ app.post('/api/users/:userId/library/tracks', async (req, res) => {
     }
 });
 
-// Удалить трек из библиотеки пользователя
 app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
     try {
         const { userId, trackId } = req.params;
@@ -207,7 +251,6 @@ app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
 
 // ===================== USER LIBRARY ARTISTS =====================
 
-// Получить подписки пользователя на артистов
 app.get('/api/users/:userId/library/artists', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -225,7 +268,6 @@ app.get('/api/users/:userId/library/artists', async (req, res) => {
     }
 });
 
-// Подписаться на артиста (Безопасный INSERT)
 app.post('/api/users/:userId/library/artists', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -250,7 +292,6 @@ app.post('/api/users/:userId/library/artists', async (req, res) => {
     }
 });
 
-// Отписаться от артиста
 app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
     try {
         const { userId, artistId } = req.params;
@@ -292,9 +333,20 @@ app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
     }
 });
 
+// Глобальная обработка ошибок Multer (опционально, защищает от падения при неверных файлах)
+app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Multer error: ${err.message}` });
+    } else if (err) {
+        return res.status(400).json({ error: err.message });
+    }
+    next();
+});
+
 // ===================== ЗАПУСК СЕРВЕРА =====================
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
