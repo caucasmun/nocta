@@ -108,11 +108,18 @@ app.get('/api/artists', async (req, res) => {
 
 app.post('/api/artists', async (req, res) => {
     try {
-        const { artist, trackscount, about, photo_url } = req.body;
+        const { artist, trackscount, about, photo_url, user_id } = req.body;
         const result = await pool.query(
             'INSERT INTO public.artists (artist, trackscount, about, photo_url) VALUES ($1, $2, $3, $4) RETURNING *',
             [artist, trackscount || 0, about || '', photo_url || '']
         );
+        if (user_id) {
+            await pool.query(
+                `INSERT INTO public.user_library_artists (user_id, artist_id)
+                 VALUES ($1, $2) ON CONFLICT (user_id, artist_id) DO NOTHING`,
+                [user_id, result.rows[0].id]
+            );
+        }
         res.status(201).json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
@@ -147,6 +154,26 @@ app.post('/api/tracks', async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
             [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '']
         );
+
+        const trackRow = result.rows[0];
+        if (user_id) {
+            await pool.query(
+                `INSERT INTO public.user_library_tracks (user_id, track_id)
+                 VALUES ($1, $2) ON CONFLICT (user_id, track_id) DO NOTHING`,
+                [user_id, trackRow.id]
+            );
+            const artistRow = await pool.query(
+                'SELECT id FROM public.artists WHERE artist = $1',
+                [artist]
+            );
+            if (artistRow.rows.length > 0) {
+                await pool.query(
+                    `INSERT INTO public.user_library_artists (user_id, artist_id)
+                     VALUES ($1, $2) ON CONFLICT (user_id, artist_id) DO NOTHING`,
+                    [user_id, artistRow.rows[0].id]
+                );
+            }
+        }
         
         // Безопасное обновление счетчика у артиста
         try {
@@ -358,6 +385,44 @@ app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Artist not found in library' });
         res.json({ message: 'Artist removed from library' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Подтянуть в библиотеку треки/артистов, созданные с user_id, но без связи в user_library_*
+app.post('/api/users/:userId/library/sync', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const tracks = await pool.query(
+            `INSERT INTO public.user_library_tracks (user_id, track_id)
+             SELECT $1, t.id FROM public.tracks t
+             WHERE t.user_id = $1
+             AND NOT EXISTS (
+                 SELECT 1 FROM public.user_library_tracks ult
+                 WHERE ult.user_id = $1 AND ult.track_id = t.id
+             )
+             RETURNING track_id`,
+            [userId]
+        );
+        const artists = await pool.query(
+            `INSERT INTO public.user_library_artists (user_id, artist_id)
+             SELECT DISTINCT $1, a.id
+             FROM public.tracks t
+             JOIN public.artists a ON a.artist = t.artist
+             WHERE t.user_id = $1
+             AND NOT EXISTS (
+                 SELECT 1 FROM public.user_library_artists ula
+                 WHERE ula.user_id = $1 AND ula.artist_id = a.id
+             )
+             RETURNING artist_id`,
+            [userId]
+        );
+        res.json({
+            tracks_added: tracks.rowCount,
+            artists_added: artists.rowCount,
+        });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });

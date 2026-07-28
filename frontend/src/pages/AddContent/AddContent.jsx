@@ -2,11 +2,9 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { uploadAudio, uploadImage, API_ORIGIN } from '../../data/api';
+import { uploadAudio, uploadImage } from '../../data/api';
+import { addTrack, addArtist } from '../../data/db';
 import cn from './AddContent.module.css';
-
-// Берётся из VITE_API_URL (локально http://localhost:5000, прод — Render)
-const API_BASE_URL = API_ORIGIN;
 
 function AddContent() {
     const { user } = useAuth();
@@ -123,28 +121,13 @@ function AddContent() {
             }
             setProgress(80);
 
-            const trackData = {
+            await addTrack(user.id, {
                 title: title.trim(),
                 artist: artist.trim(),
                 lyrics: lyrics.trim(),
-                isliked: false,
-                user_id: user.id,
                 audio_url: audioUrl,
-                cover_url: coverUrl 
-            };
-
-            const trackRes = await fetch(`${API_BASE_URL}/api/tracks`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(trackData),
+                cover_url: coverUrl,
             });
-
-            if (!trackRes.ok) {
-                const errData = await trackRes.json().catch(() => ({}));
-                throw new Error(errData.error || 'Не удалось сохранить трек в базу данных');
-            }
 
             reloadTracks();
 
@@ -184,25 +167,13 @@ function AddContent() {
                 photoUrl = photoData.url;
             }
 
-            const artistData = {
-                artist: artistName.trim(), 
-                about: artistBio.trim(),   
-                trackscount: 0,
-                photo_url: photoUrl
-            };
-
-            const artistRes = await fetch(`${API_BASE_URL}/api/artists`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(artistData),
+            await addArtist(user.id, {
+                name: artistName.trim(),
+                bio: artistBio.trim(),
+                photo_url: photoUrl,
             });
 
-            if (!artistRes.ok) {
-                const errData = await artistRes.json().catch(() => ({}));
-                throw new Error(errData.error || 'Не удалось сохранить артиста в базу данных');
-            }
+            reloadTracks();
 
             setArtistName('');
             setArtistBio('');

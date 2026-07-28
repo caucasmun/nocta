@@ -144,6 +144,12 @@ export async function removeArtistFromLibrary(userId, artistId) {
     });
 }
 
+export async function syncUserLibrary(userId) {
+    return request(`/users/${userId}/library/sync`, {
+        method: 'POST',
+    });
+}
+
 // ==================== FILE UPLOADS ====================
 
 export async function uploadAudio(file) {

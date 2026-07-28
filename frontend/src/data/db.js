@@ -64,6 +64,7 @@ export async function addTrack(userId, track) {
             isliked: false,
             user_id: userId,
             audio_url: track.audio_url || '',
+            cover_url: track.cover_url || '',
         });
 
         // Add to user's library
@@ -119,6 +120,8 @@ export async function addArtist(userId, artist) {
             artist: artist.name,
             trackscount: 0,
             about: artist.bio || '',
+            photo_url: artist.photo_url || '',
+            user_id: userId,
         });
         await api.addArtistToLibrary(userId, newArtist.id);
         return newArtist;
@@ -134,6 +137,16 @@ export async function deleteArtist(userId, artistId) {
         await api.deleteArtist(artistId);
     } catch (err) {
         console.error('Error deleting artist:', err);
+    }
+}
+
+/** Связать треки с user_id и их артистов с библиотекой пользователя (после старых загрузок без library) */
+export async function syncUserLibrary(userId) {
+    try {
+        return await api.syncUserLibrary(userId);
+    } catch (err) {
+        console.error('Error syncing library:', err);
+        return { tracks_added: 0, artists_added: 0 };
     }
 }
 
