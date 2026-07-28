@@ -1,0 +1,257 @@
+.add {
+    min-height: 100vh;
+    background-color: #020202;
+    color: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    padding: 40px;
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 900;
+    margin: 0 0 24px;
+    letter-spacing: -1px;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.tab {
+    padding: 10px 24px;
+    border-radius: 20px;
+    border: 1px solid #333;
+    background: transparent;
+    color: #b3b3b3;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab:hover {
+    color: #1db954;
+    border-color: #1db954;
+}
+
+.tab.active {
+    background-color: #1db954;
+    border-color: #1db954;
+    color: #000000;
+}
+
+.form {
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.input, .textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background-color: #242424;
+    color: #ffffff;
+    font-size: 15px;
+    font-family: 'Montserrat', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input:focus, .textarea:focus {
+    border-color: #1db954;
+}
+
+.input::placeholder, .textarea::placeholder {
+    color: #666;
+}
+
+.textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.colorRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.colorLabel {
+    color: #b3b3b3;
+    font-size: 14px;
+}
+
+.colorInput {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.submit {
+    padding: 14px;
+    border-radius: 24px;
+    border: none;
+    background-color: #1db954;
+    color: #000000;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.submit:hover {
+    background-color: #1ed760;
+}
+
+.success {
+    color: #1db954;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 16px;
+}
+
+.error {
+    color: #ff334b;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 16px;
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    gap: 20px;
+}
+
+.emptyTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.loginBtn {
+    padding: 12px 32px;
+    border-radius: 24px;
+    border: none;
+    background-color: #1db954;
+    color: #000000;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.loginBtn:hover {
+    background-color: #1ed760;
+}
+
+.fileUpload {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fileInput {
+    display: none;
+}
+
+.fileBtn {
+    padding: 12px 20px;
+    border-radius: 8px;
+    border: 1px dashed #333;
+    background-color: #242424;
+    color: #b3b3b3;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.fileBtn:hover {
+    border-color: #1db954;
+    color: #1db954;
+    background-color: #2a2a2a;
+}
+
+.fileLabel {
+    color: #b3b3b3;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.fileName {
+    color: #1db954;
+    font-size: 13px;
+    font-weight: 500;
+    margin: 0;
+    word-break: break-all;
+}
+
+.coverPreview {
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 2px solid #333;
+    margin-top: 4px;
+}
+
+.coverPreviewImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.imageUpload {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.imageLabel {
+    color: #b3b3b3;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.imageUpload .fileInput {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    background-color: #242424;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.imageUpload .fileInput::file-selector-button {
+    padding: 6px 12px;
+    background-color: #1db954;
+    color: #000000;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 12px;
+}

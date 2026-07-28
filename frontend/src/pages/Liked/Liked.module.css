@@ -1,0 +1,137 @@
+.liked {
+    min-height: 100vh;
+    background-color: #020202;
+    color: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    padding: 40px;
+}
+
+.header {
+    margin-bottom: 32px;
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 900;
+    margin: 0;
+    letter-spacing: -1px;
+}
+
+.content {
+    max-width: 900px;
+}
+
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 40vh;
+    gap: 12px;
+    text-align: center;
+}
+
+.emptyTitle {
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.emptyText {
+    font-size: 14px;
+    color: #b3b3b3;
+    margin: 0;
+}
+
+.homeLink {
+    color: #1db954;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 8px;
+    transition: color 0.2s;
+}
+
+.homeLink:hover {
+    color: #1ed760;
+}
+
+.trackList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trackItem {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    cursor: pointer;
+}
+
+.trackItem:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.trackArt {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, var(--track-color, #1db954), #1ed760);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.trackArt svg {
+    width: 20px;
+    height: 20px;
+    color: #000000;
+    opacity: 0.8;
+}
+
+.trackCoverImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.trackInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+}
+
+.trackName {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trackArtist {
+    font-size: 13px;
+    color: #b3b3b3;
+    margin: 0;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.trackArtist:hover {
+    color: #ffffff;
+}

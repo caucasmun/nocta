@@ -1,0 +1,241 @@
+.search {
+    min-height: 100vh;
+    background-color: #020202;
+    color: #ffffff;
+    font-family: 'Montserrat', sans-serif;
+    padding: 40px;
+}
+
+.header {
+    max-width: 800px;
+    margin: 0 auto 40px;
+}
+
+.title {
+    font-size: 32px;
+    font-weight: 900;
+    margin: 0 0 24px;
+    letter-spacing: -1px;
+}
+
+.inputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 16px;
+    color: #1db954;
+    pointer-events: none;
+}
+
+.input {
+    width: 100%;
+    padding: 14px 48px 14px 48px;
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    font-size: 16px;
+    font-family: 'Montserrat', sans-serif;
+    outline: none;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.input:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: #1db954;
+}
+
+.clearBtn {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.clearBtn:hover {
+    color: #1db954;
+}
+
+.results {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.section {
+    margin-bottom: 40px;
+}
+
+.sectionTitle {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 20px;
+}
+
+.empty {
+    text-align: center;
+    padding: 60px 0;
+}
+
+.emptyTitle {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: #ffffff;
+}
+
+.emptyText {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+.artistGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px;
+}
+
+.artistCard {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: background-color 0.2s, transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.artistCard:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+}
+
+.artistPhoto {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--card-color, #1db954), #1ed760);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.artistPhoto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artistPhoto svg {
+    width: 40px;
+    height: 40px;
+    color: #000000;
+    opacity: 0.8;
+}
+
+.artistName {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+    text-align: center;
+}
+
+.artistLabel {
+    font-size: 12px;
+    color: #888;
+    margin: 0;
+    text-align: center;
+}
+
+.trackList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trackItem {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.trackItem:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.trackArt {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--track-color, #1db954), #1ed760);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.trackArt svg {
+    width: 24px;
+    height: 24px;
+    color: #000000;
+    opacity: 0.8;
+}
+
+.trackCoverImg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.trackInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trackName {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: #ffffff;
+}
+
+.trackArtist {
+    font-size: 13px;
+    color: #b3b3b3;
+    margin: 0;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.trackArtist:hover {
+    color: #1db954;
+    text-decoration: none;
+}

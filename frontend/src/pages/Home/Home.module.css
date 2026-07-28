@@ -1,0 +1,719 @@
+.home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #020202;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* КОНТЕЙНЕР ДЛЯ ЭФФЕКТА СВЕЧЕНИЯ */
+.glow-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Первое пятно — теперь строго по центру */
+.glow-1 {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 650px;
+  height: 650px;
+  margin-top: -325px;
+  margin-left: -325px;
+  background: radial-gradient(circle, 
+    rgba(255, 255, 200, 1) 0%, 
+    rgba(255, 180, 0, 0.75) 25%, 
+    rgba(255, 40, 0, 0.4) 55%, 
+    rgba(0, 0, 0, 0) 100%
+  );
+  filter: blur(100px);
+}
+
+/* Второе пятно — тоже строго по центру поверх первого */
+.glow-2 {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 700px;
+  height: 700px;
+  margin-top: -350px;
+  margin-left: -350px;
+  background: radial-gradient(circle, 
+    rgba(255, 0, 150, 0.9) 0%, 
+    rgba(140, 0, 255, 0.6) 30%, 
+    rgba(30, 0, 200, 0.35) 60%, 
+    rgba(0, 0, 0, 0) 100%
+  );
+  filter: blur(110px);
+}
+
+/* ======================================================= */
+/* РЕЖИМ ПАУЗЫ: Плотное центральное свечение, ленивый сдвиг */
+/* ======================================================= */
+.paused .glow-1 {
+  opacity: 0.75;
+  animation: moveGlowIdle1 8s infinite alternate ease-in-out;
+}
+
+.paused .glow-2 {
+  opacity: 0.75;
+  animation: moveGlowIdle2 10s infinite alternate ease-in-out;
+}
+
+/* Анимация свечения до начала воспроизведения */
+.home:not(:has(.playing)) .glow-1,
+.home:not(:has(.playing)) .glow-2 {
+  animation: moveGlowIdle1 6s infinite alternate ease-in-out, moveGlowIdle2 8s infinite alternate ease-in-out;
+}
+
+@keyframes moveGlowIdle1 {
+  0% { transform: translate(-30px, -20px) scale(1); }
+  100% { transform: translate(30px, 20px) scale(1.06); }
+}
+@keyframes moveGlowIdle2 {
+  0% { transform: translate(20px, 30px) scale(1.05); }
+  100% { transform: translate(-40px, -30px) scale(0.95); }
+}
+
+/* ======================================================= */
+/* РЕЖИМ PLAY: Максимальная скорость, размашистые сдвиги и бит */
+/* ======================================================= */
+.playing .glow-1 {
+  opacity: 1;
+  animation: moveGlowPlaying1 4s infinite alternate ease-in-out, beatEffect 0.46s infinite alternate cubic-bezier(0.1, 0.8, 0.1, 1);
+}
+
+.playing .glow-2 {
+  opacity: 1;
+  animation: moveGlowPlaying2 4.5s infinite alternate ease-in-out, beatEffect 0.46s infinite alternate-reverse cubic-bezier(0.1, 0.8, 0.1, 1);
+}
+
+@keyframes moveGlowPlaying1 {
+  0% { 
+    transform: translate(-80px, 50px); 
+    background: radial-gradient(circle, rgba(255,255,200,1) 0%, rgba(255,180,0,0.75) 25%, rgba(255,40,0,0.4) 55%, rgba(0,0,0,0) 100%);
+  }
+  50% {
+    transform: translate(60px, -70px);
+    background: radial-gradient(circle, rgba(200,255,200,1) 0%, rgba(50,230,100,0.75) 25%, rgba(0,150,255,0.4) 55%, rgba(0,0,0,0) 100%);
+  }
+  100% { 
+    transform: translate(-40px, -60px); 
+    background: radial-gradient(circle, rgba(255,230,150,1) 0%, rgba(255,100,0,0.75) 25%, rgba(200,0,50,0.4) 55%, rgba(0,0,0,0) 100%);
+  }
+}
+
+@keyframes moveGlowPlaying2 {
+  0% { 
+    transform: translate(70px, -60px); 
+    background: radial-gradient(circle, rgba(255,0,150,0.9) 0%, rgba(140,0,255,0.6) 30%, rgba(30,0,200,0.35) 60%, rgba(0,0,0,0) 100%);
+  }
+  50% {
+    transform: translate(-80px, 40px);
+    background: radial-gradient(circle, rgba(0,255,240,0.9) 0%, rgba(0,100,255,0.6) 30%, rgba(150,0,200,0.35) 60%, rgba(0,0,0,0) 100%);
+  }
+  100% { 
+    transform: translate(50px, 80px); 
+    background: radial-gradient(circle, rgba(230,0,255,0.9) 0%, rgba(255,0,100,0.6) 30%, rgba(100,0,150,0.35) 60%, rgba(0,0,0,0) 100%);
+  }
+}
+
+@keyframes beatEffect {
+  0% { 
+    transform: scale(0.85) brightness(0.85);
+  }
+  12% { 
+    transform: scale(1.35) brightness(1.7);
+  }
+  45% {
+    transform: scale(1.05) brightness(1.1);
+  }
+  100% { 
+    transform: scale(1) brightness(1);
+  }
+}
+
+/* ======================================================= */
+/* СТИЛИ ИНТЕРФЕЙСА ПЛЕЕРА */
+/* ======================================================= */
+.title {
+  color: #ffffff;
+  font-size: 46px;
+  font-weight: 900;
+  margin-bottom: 40px;
+  font-family: 'Montserrat', sans-serif;
+  letter-spacing: -1.5px;
+  position: relative;
+  z-index: 2;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.home:has(.playing) .title {
+  animation: neonGlowBreath 3.5s infinite alternate ease-in-out;
+}
+
+@keyframes neonGlowBreath {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ======================================================= */
+/* ОБЛОЖКА ТРЕКА (БОЛЬШАЯ, ПО ЦЕНТРУ) */
+/* ======================================================= */
+.cover-wrapper {
+  overflow: hidden;
+  transition: max-height 1.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 1s ease, 
+              margin 1s ease,
+              transform 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 640px;
+  transform: translateY(30px) scale(0.95);
+  opacity: 0;
+}
+
+.cover-wrapper.cover-visible {
+  max-height: 500px;
+  opacity: 1;
+  margin-bottom: 32px;
+  transform: translateY(0) scale(1);
+}
+
+.cover-wrapper.cover-hidden {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+  transform: translateY(-30px) scale(0.95);
+}
+
+.cover-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.cover-song-name {
+  color: #ffffff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  text-align: center;
+}
+
+.cover-artwork {
+  width: 280px;
+  height: 280px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--cover-color, #1db954), #1ed760);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.home:has(.playing) .cover-artwork {
+  animation: coverPulse 2s infinite alternate ease-in-out;
+}
+
+@keyframes coverPulse {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1.05);
+  }
+}
+
+.cover-note-icon {
+  width: 100px;
+  height: 100px;
+  color: #000;
+  opacity: 0.8;
+}
+
+.cover-artist-name {
+  color: #b3b3b3;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+  cursor: pointer;
+  transition: color 0.2s, text-decoration 0.2s;
+}
+
+.cover-artist-name:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* ======================================================= */
+/* АУДИО ПЛЕЕР */
+/* ======================================================= */
+.audio-player {
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 28px;
+  width: 100%;
+  max-width: 640px;
+  box-sizing: border-box;
+  font-family: 'Montserrat', sans-serif;
+  border-radius: 28px;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.8s ease;
+  animation: fadeInUp 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.audio-player:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.player-btn, .control-btn, .info-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, transform 0.1s ease, color 0.2s ease;
+  padding: 0;
+}
+
+.player-btn:hover, .control-btn:hover {
+  opacity: 0.8;
+}
+
+.player-btn:active {
+  transform: scale(0.95);
+}
+
+.heart-btn.active {
+  color: #ff334b !important;
+  background-color: rgba(255, 51, 75, 0.14) !important;
+}
+
+.player-track-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  gap: 16px;
+}
+
+.volume-block {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 40px;
+  width: 40px;
+  justify-content: center;
+}
+
+.volume-slider-container {
+  position: absolute;
+  bottom: 45px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 0;
+  background-color: rgba(15, 15, 15, 0.95);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: height 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.volume-block:hover .volume-slider-container {
+  height: 100px;
+  padding: 10px 0;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 80px;
+  height: 3px;
+  background: #333333;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  transform: rotate(-90deg); 
+  transform-origin: center;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+}
+
+.track-center {
+  flex-grow: 1;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 30px;
+  position: relative;
+  overflow: hidden;
+  height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+
+.progress-bar-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.18);
+  z-index: 1;
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+.track-meta {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  padding: 0 24px;
+}
+
+/* Время в прогресс-баре во время воспроизведения */
+.track-time-only {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Montserrat', sans-serif;
+  user-select: none;
+  text-align: center;
+}
+
+/* Название трека в прогресс-баре на паузе */
+.track-title-paused {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Montserrat', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  user-select: none;
+  margin-right: 12px;
+}
+
+/* Время в прогресс-баре на паузе */
+.track-time-paused {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-family: 'Montserrat', sans-serif;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.info-btn {
+  position: absolute;
+  right: 24px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s;
+}
+
+.info-btn:hover {
+  color: #ffffff;
+}
+
+.actions-block {
+  display: flex;
+  gap: 12px;
+}
+
+.actions-block .player-btn {
+  background-color: rgba(255, 255, 255, 0.07);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  color: #aaaaaa;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.actions-block .player-btn:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.player-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 36px;
+}
+
+.player-controls .control-btn {
+  color: #aaaaaa;
+}
+
+.player-controls .control-btn:hover {
+  color: #ffffff;
+}
+
+.play-btn {
+  background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);
+  color: #000000 !important;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  box-shadow: 0 4px 16px rgba(29, 185, 84, 0.4);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), 
+              box-shadow 0.2s ease,
+              background 0.2s ease;
+}
+
+.play-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px rgba(29, 185, 84, 0.6);
+  background: linear-gradient(135deg, #1ed760 0%, #1ff769 100%);
+}
+
+.play-btn:active {
+  transform: scale(0.95);
+}
+
+/* ======================================================= */
+/* СТАРТОВАЯ КНОПКА (большая, по центру до начала) */
+/* ======================================================= */
+.start-btn {
+  background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);
+  border: none;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  color: #000000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.start-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 30px rgba(29, 185, 84, 0.5);
+}
+
+.start-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.dragging .track-time-only {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+
+.dragging .progress-bar-bg {
+  background-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+/* Lyrics sidebar panel */
+.lyrics-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lyrics-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 90vw;
+  background-color: #1a1a1a;
+  border-left: 1px solid #282828;
+  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.lyrics-panel-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid #282828;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lyrics-song-name {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  padding-right: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrics-artist-name {
+  color: #b3b3b3;
+  font-size: 13px;
+  margin: 0;
+  padding-right: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lyrics-close {
+  position: absolute;
+  top: 20px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.lyrics-close:hover {
+  color: #ffffff;
+}
+
+.lyrics-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.lyrics-text {
+  color: #e0e0e0;
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  text-align: left;
+  font-family: 'Montserrat', sans-serif;
+  margin: 0;
+}
+
+.lyrics-placeholder {
+  color: #535353;
+  font-size: 15px;
+  font-style: italic;
+  margin: 60px 0;
+}
+
+@media (max-width: 768px) {
+  .lyrics-panel {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .lyrics-panel-body {
+    padding: 24px 16px;
+  }
+}
