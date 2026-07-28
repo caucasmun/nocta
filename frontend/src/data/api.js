@@ -4,16 +4,64 @@ const API_BASE = `${API_ORIGIN}/api`;
 
 export { API_ORIGIN, API_BASE };
 
+const NETWORK_ERROR =
+    'Сервер недоступен. Подождите 30 секунд (Render просыпается) и попробуйте снова.';
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function parseJsonSafe(res) {
+    const text = await res.text();
+    if (!text) return {};
+    try {
+        return JSON.parse(text);
+    } catch {
+        throw new Error('Сервер вернул некорректный ответ');
+    }
+}
+
+async function fetchWithRetry(url, options = {}, retries = 3) {
+    let lastError;
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const res = await fetch(url, options);
+            return res;
+        } catch (err) {
+            lastError = err;
+            if (attempt < retries - 1) {
+                await sleep(1500 * (attempt + 1));
+            }
+        }
+    }
+    throw lastError;
+}
+
 async function request(endpoint, options = {}) {
     const url = `${API_BASE}${endpoint}`;
     const config = {
         headers: { 'Content-Type': 'application/json' },
         ...options,
     };
-    const res = await fetch(url, config);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Request failed');
-    return data;
+    try {
+        const res = await fetchWithRetry(url, config);
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(data.error || data.message || 'Request failed');
+        return data;
+    } catch (err) {
+        if (err instanceof TypeError || err.message === 'Failed to fetch') {
+            throw new Error(NETWORK_ERROR);
+        }
+        throw err;
+    }
+}
+
+export async function wakeBackend() {
+    try {
+        await fetchWithRetry(`${API_BASE}/health`, {}, 2);
+    } catch {
+        // ignore — основной запрос повторится сам
+    }
 }
 
 // ==================== USERS ====================
@@ -157,14 +205,17 @@ export async function uploadAudio(file) {
     const formData = new FormData();
     formData.append('audio', file);
     
-    const res = await fetch(url, {
-        method: 'POST',
-        body: formData,
-    });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to upload audio');
-    return data;
+    try {
+        const res = await fetchWithRetry(url, { method: 'POST', body: formData });
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(data.error || 'Failed to upload audio');
+        return data;
+    } catch (err) {
+        if (err instanceof TypeError || err.message === 'Failed to fetch') {
+            throw new Error(NETWORK_ERROR);
+        }
+        throw err;
+    }
 }
 
 export async function uploadImage(file) {
@@ -172,12 +223,15 @@ export async function uploadImage(file) {
     const formData = new FormData();
     formData.append('cover', file);
     
-    const res = await fetch(url, {
-        method: 'POST',
-        body: formData,
-    });
-    
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to upload image');
-    return data;
+    try {
+        const res = await fetchWithRetry(url, { method: 'POST', body: formData });
+        const data = await parseJsonSafe(res);
+        if (!res.ok) throw new Error(data.error || 'Failed to upload image');
+        return data;
+    } catch (err) {
+        if (err instanceof TypeError || err.message === 'Failed to fetch') {
+            throw new Error(NETWORK_ERROR);
+        }
+        throw err;
+    }
 }

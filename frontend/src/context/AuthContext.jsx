@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginUser, registerUser, saveSession, getSession, clearSession, syncUserLibrary } from '../data/db';
+import { wakeBackend } from '../data/api';
 
 const AuthContext = createContext(null);
 
@@ -9,21 +10,23 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         (async () => {
+            await wakeBackend();
             const session = getSession();
             if (session) {
-                await syncUserLibrary(session.id);
                 setUser(session);
+                syncUserLibrary(session.id);
             }
             setLoading(false);
         })();
     }, []);
 
     const login = useCallback(async (username, password) => {
+        await wakeBackend();
         const result = await loginUser(username, password);
         if (result.success) {
-            await syncUserLibrary(result.user.id);
             setUser(result.user);
             saveSession(result.user);
+            syncUserLibrary(result.user.id);
         }
         return result;
     }, []);

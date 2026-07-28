@@ -10,10 +10,19 @@ const fs = require('fs');
 const app = express();
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
+
+function parseUserId(raw, res) {
+    const userId = Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(userId) || userId <= 0) {
+        res.status(400).json({ error: 'Invalid user id' });
+        return null;
+    }
+    return userId;
+}
 
 // Проверка живости API и БД (удобно для Render / локального теста)
 app.get('/api/health', async (req, res) => {
@@ -279,7 +288,8 @@ app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
 
 app.get('/api/users/:userId/library/tracks', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
         const result = await pool.query(`
             SELECT t.*, ult.added_at
             FROM public.user_library_tracks ult
@@ -296,7 +306,8 @@ app.get('/api/users/:userId/library/tracks', async (req, res) => {
 
 app.post('/api/users/:userId/library/tracks', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
         const { track_id } = req.body;
         
         const result = await pool.query(
@@ -320,7 +331,9 @@ app.post('/api/users/:userId/library/tracks', async (req, res) => {
 
 app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
     try {
-        const { userId, trackId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
+        const trackId = Number.parseInt(req.params.trackId, 10);
         const result = await pool.query(
             'DELETE FROM public.user_library_tracks WHERE user_id = $1 AND track_id = $2 RETURNING *',
             [userId, trackId]
@@ -337,7 +350,8 @@ app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
 
 app.get('/api/users/:userId/library/artists', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
         const result = await pool.query(`
             SELECT a.*, ula.added_at
             FROM public.user_library_artists ula
@@ -354,7 +368,8 @@ app.get('/api/users/:userId/library/artists', async (req, res) => {
 
 app.post('/api/users/:userId/library/artists', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
         const { artist_id } = req.body;
         
         const result = await pool.query(
@@ -378,7 +393,9 @@ app.post('/api/users/:userId/library/artists', async (req, res) => {
 
 app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
     try {
-        const { userId, artistId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
+        const artistId = Number.parseInt(req.params.artistId, 10);
         const result = await pool.query(
             'DELETE FROM public.user_library_artists WHERE user_id = $1 AND artist_id = $2 RETURNING *',
             [userId, artistId]
@@ -394,27 +411,28 @@ app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
 // Подтянуть в библиотеку треки/артистов, созданные с user_id, но без связи в user_library_*
 app.post('/api/users/:userId/library/sync', async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = parseUserId(req.params.userId, res);
+        if (userId == null) return;
         const tracks = await pool.query(
             `INSERT INTO public.user_library_tracks (user_id, track_id)
-             SELECT $1, t.id FROM public.tracks t
-             WHERE t.user_id = $1
+             SELECT $1::int, t.id FROM public.tracks t
+             WHERE t.user_id = $1::int
              AND NOT EXISTS (
                  SELECT 1 FROM public.user_library_tracks ult
-                 WHERE ult.user_id = $1 AND ult.track_id = t.id
+                 WHERE ult.user_id = $1::int AND ult.track_id = t.id
              )
              RETURNING track_id`,
             [userId]
         );
         const artists = await pool.query(
             `INSERT INTO public.user_library_artists (user_id, artist_id)
-             SELECT DISTINCT $1, a.id
+             SELECT DISTINCT $1::int, a.id
              FROM public.tracks t
              JOIN public.artists a ON a.artist = t.artist
-             WHERE t.user_id = $1
+             WHERE t.user_id = $1::int
              AND NOT EXISTS (
                  SELECT 1 FROM public.user_library_artists ula
-                 WHERE ula.user_id = $1 AND ula.artist_id = a.id
+                 WHERE ula.user_id = $1::int AND ula.artist_id = a.id
              )
              RETURNING artist_id`,
             [userId]
@@ -423,32 +441,6 @@ app.post('/api/users/:userId/library/sync', async (req, res) => {
             tracks_added: tracks.rowCount,
             artists_added: artists.rowCount,
         });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ===================== FILE UPLOAD =====================
-
-// Загрузка аудиофайла
-app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl, filename: req.file.filename });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Загрузка обложки/изображения
-app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl, filename: req.file.filename });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
