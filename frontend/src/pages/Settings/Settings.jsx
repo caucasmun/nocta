@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getSession, saveSession } from '../../data/db';
+import { updateUser as apiUpdateUser } from '../../data/api';
 import cn from './Settings.module.css';
 
 function Settings() {
@@ -25,7 +26,7 @@ function Settings() {
         }
     }, [user, navigate]);
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
@@ -35,15 +36,16 @@ function Settings() {
             return;
         }
 
-        const updatedUser = {
-            ...user,
-            username: username.trim(),
-            bio: bio.trim(),
-        };
-
-        saveSession(updatedUser);
-        setSuccess('Профиль обновлен!');
-        setTimeout(() => setSuccess(''), 2000);
+        try {
+            // Сохраняем изменения на бэкенде
+            const updatedUser = await apiUpdateUser(user.id, username.trim(), bio.trim());
+            // Обновляем сессию локально
+            saveSession(updatedUser);
+            setSuccess('Профиль обновлен!');
+            setTimeout(() => setSuccess(''), 2000);
+        } catch (err) {
+            setError(err.message || 'Ошибка при сохранении');
+        }
     };
 
     const handleLogout = () => {

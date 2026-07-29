@@ -18,7 +18,6 @@ function LeftNav() {
                 <div className={cn.navBar}>
                     {/* Logo */}
                     <Link to="/" className={cn.logo}>
-                       <img src="/icon.png" alt="" />
                         <span className={cn.logoText}>Nocta</span>
                     </Link>
 

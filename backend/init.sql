@@ -1,16 +1,19 @@
--- Схема для локального Postgres и Supabase (SQL Editor)
+-- Создание таблиц для музыкального приложения
 
 CREATE TABLE IF NOT EXISTS public.users (
     id SERIAL PRIMARY KEY,
-    username VARCHAR(255) UNIQUE NOT NULL
+    username VARCHAR(255) UNIQUE NOT NULL,
+    bio VARCHAR(1000)
 );
 
 CREATE TABLE IF NOT EXISTS public.artists (
     id SERIAL PRIMARY KEY,
     artist VARCHAR(255) UNIQUE NOT NULL,
+    slug VARCHAR(255) UNIQUE,
     trackscount INT DEFAULT 0,
     about VARCHAR(1000),
-    photo_url VARCHAR(1000) DEFAULT ''
+    photo_url VARCHAR(500),
+    color VARCHAR(20) DEFAULT '#ff6b00'
 );
 
 CREATE TABLE IF NOT EXISTS public.tracks (
@@ -20,8 +23,9 @@ CREATE TABLE IF NOT EXISTS public.tracks (
     lyrics VARCHAR(10000),
     isliked BOOLEAN DEFAULT false,
     user_id INT REFERENCES public.users(id) ON DELETE SET NULL,
-    audio_url VARCHAR(1000) DEFAULT '',
-    cover_url VARCHAR(1000) DEFAULT ''
+    audio_url VARCHAR(500),
+    cover_url VARCHAR(500),
+    color VARCHAR(20) DEFAULT '#ff6b00'
 );
 
 CREATE TABLE IF NOT EXISTS public.user_library_tracks (
@@ -38,12 +42,8 @@ CREATE TABLE IF NOT EXISTS public.user_library_artists (
     PRIMARY KEY (user_id, artist_id)
 );
 
+-- Индексы для ускорения запросов
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON public.tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_user_id ON public.tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_tracks_user ON public.user_library_tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_artists_user ON public.user_library_artists(user_id);
-
--- Если таблицы уже были без новых колонок — безопасно добавить:
-ALTER TABLE public.artists ADD COLUMN IF NOT EXISTS photo_url VARCHAR(1000) DEFAULT '';
-ALTER TABLE public.tracks ADD COLUMN IF NOT EXISTS cover_url VARCHAR(1000) DEFAULT '';
-ALTER TABLE public.tracks ADD COLUMN IF NOT EXISTS audio_url VARCHAR(1000) DEFAULT '';

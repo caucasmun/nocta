@@ -33,9 +33,9 @@ function Liked() {
 
             // Resolve covers
             likedTracks.forEach(track => {
-                if (track.cover && !coverCache[track.cover]) {
-                    getFile(track.cover).then(url => {
-                        if (url) setCoverCache(prev => ({ ...prev, [track.cover]: url }));
+                if (track.cover_url && !coverCache[track.cover_url]) {
+                    getFile(track.cover_url).then(url => {
+                        if (url) setCoverCache(prev => ({ ...prev, [track.cover_url]: url }));
                     });
                 }
             });
@@ -72,10 +72,10 @@ function Liked() {
                                 onClick={() => playTrack(track)}
                             >
                                 <div className={cn.trackArt} style={{ '--track-color': track.color || '#333' }}>
-                                    {track.cover && coverCache[track.cover] ? (
-                                        <img src={coverCache[track.cover]} alt={track.title} className={cn.trackCoverImg} />
+                                    {track.cover_url && coverCache[track.cover_url] ? (
+                                        <img src={coverCache[track.cover_url]} alt={track.title} className={cn.trackCoverImg} />
                                     ) : null}
-                                    <svg viewBox="0 0 24 24" fill="currentColor" style={(track.cover && coverCache[track.cover]) ? { display: 'none' } : {}}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" style={(track.cover_url && coverCache[track.cover_url]) ? { display: 'none' } : {}}>
                                         <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                                     </svg>
                                 </div>

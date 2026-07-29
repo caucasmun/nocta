@@ -20,7 +20,9 @@ function Artist() {
         (async () => {
             const artists = await getArtists(user.id);
             if (cancelled) return;
-            const foundArtist = artists.find(a => a.slug === slug);
+            // Ищем по slug (из БД) или по сгенерированному slug из имени
+            const makeSlug = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+            const foundArtist = artists.find(a => a.slug === slug || makeSlug(a.artist) === slug);
             setArtist(foundArtist);
 
             if (foundArtist) {
@@ -31,9 +33,9 @@ function Artist() {
 
                 // Resolve covers
                 filtered.forEach(track => {
-                    if (track.cover && !coverCache[track.cover]) {
-                        getFile(track.cover).then(url => {
-                            if (url) setCoverCache(prev => ({ ...prev, [track.cover]: url }));
+                    if (track.cover_url && !coverCache[track.cover_url]) {
+                        getFile(track.cover_url).then(url => {
+                            if (url) setCoverCache(prev => ({ ...prev, [track.cover_url]: url }));
                         });
                     }
                 });
@@ -64,8 +66,8 @@ function Artist() {
                 </Link>
                 <div className={cn.heroContent}>
                     <div className={cn.heroPhoto}>
-                        {artist.photo ? (
-                            <img src={artist.photo} alt={artist.artist} className={cn.heroImg} />
+                        {artist.photo_url ? (
+                            <img src={artist.photo_url} alt={artist.artist} className={cn.heroImg} />
                         ) : (
                             <svg viewBox="0 0 24 24" fill="currentColor" className={cn.heroPhotoPlaceholder}>
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -97,10 +99,10 @@ function Artist() {
                             >
                                 <div className={cn.trackNum}>{artistTracks.indexOf(track) + 1}</div>
                                 <div className={cn.trackArt}>
-                                    {(track.cover && coverCache[track.cover]) ? (
-                                        <img src={coverCache[track.cover]} alt={track.title} className={cn.trackCoverImg} />
+                                    {(track.cover_url && coverCache[track.cover_url]) ? (
+                                        <img src={coverCache[track.cover_url]} alt={track.title} className={cn.trackCoverImg} />
                                     ) : null}
-                                    <svg viewBox="0 0 24 24" fill="currentColor" style={(track.cover && coverCache[track.cover]) ? { display: 'none' } : {}}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" style={(track.cover_url && coverCache[track.cover_url]) ? { display: 'none' } : {}}>
                                         <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                                     </svg>
                                 </div>

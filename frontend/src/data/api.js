@@ -1,11 +1,11 @@
-const RAW_API = import.meta.env.VITE_API_URL /*|| 'https://nocta-backend-3dqm.onrender.com' */;
-const API_ORIGIN = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '') /*|| 'https://nocta-backend-3dqm.onrender.com'*/;
+// Локальный бэкенд на http://localhost:5000
+const RAW_API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_ORIGIN = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '');
 const API_BASE = `${API_ORIGIN}/api`;
 
 export { API_ORIGIN, API_BASE };
 
-const NETWORK_ERROR =
-    'Сервер недоступен. Подождите 30 секунд (Render просыпается) и попробуйте снова.';
+const NETWORK_ERROR = 'Сервер недоступен. Убедитесь, что бэкенд запущен на http://localhost:5000';
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -30,7 +30,7 @@ async function fetchWithRetry(url, options = {}, retries = 3) {
         } catch (err) {
             lastError = err;
             if (attempt < retries - 1) {
-                await sleep(1500 * (attempt + 1));
+                await sleep(1000 * (attempt + 1));
             }
         }
     }
@@ -81,10 +81,10 @@ export async function createUser(username) {
     });
 }
 
-export async function updateUser(id, username) {
+export async function updateUser(id, username, bio) {
     return request(`/users/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, bio }),
     });
 }
 

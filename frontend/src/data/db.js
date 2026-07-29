@@ -64,6 +64,7 @@ export async function addTrack(userId, track) {
             user_id: userId,
             audio_url: track.audio_url || '',
             cover_url: track.cover_url || '',
+            color: track.color || '#ff6b00',
         });
 
         // Add to user's library
@@ -120,7 +121,7 @@ export async function addArtist(userId, artist) {
             trackscount: 0,
             about: artist.bio || '',
             photo_url: artist.photo_url || '',
-            user_id: userId,
+            color: artist.color || '#ff6b00',
         });
         await api.addArtistToLibrary(userId, newArtist.id);
         return newArtist;
@@ -190,10 +191,9 @@ export async function getFile(url) {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
     
-    // Если бэкенд возвращает относительный путь /uploads/..., используем API_BASE из api.js
-    const base = api.API_BASE || '/api';
-    const prefix = base.endsWith('/api') ? base.slice(0, -4) : base;
-    return `${prefix}${url}`;
+    // Если бэкенд возвращает относительный путь /uploads/..., используем API_ORIGIN
+    const origin = api.API_ORIGIN || 'http://localhost:5000';
+    return `${origin}${url}`;
 }
 
 export async function storeFile(file) {

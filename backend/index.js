@@ -1,5 +1,4 @@
 require('dotenv').config();
-
 const express = require('express');
 const pool = require('./db');
 const cors = require('cors');
@@ -8,31 +7,8 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+app.use(cors());
 app.use(express.json());
-
-function parseUserId(raw, res) {
-    const userId = Number.parseInt(String(raw), 10);
-    if (!Number.isFinite(userId) || userId <= 0) {
-        res.status(400).json({ error: 'Invalid user id' });
-        return null;
-    }
-    return userId;
-}
-
-// Проверка живости API и БД (удобно для Render / локального теста)
-app.get('/api/health', async (req, res) => {
-    try {
-        await pool.query('SELECT 1');
-        res.json({ ok: true, db: 'up' });
-    } catch (err) {
-        res.status(503).json({ ok: false, db: 'down', error: err.message });
-    }
-});
 
 // Настройка multer для загрузки файлов
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -62,11 +38,23 @@ const upload = multer({
     }
 });
 
-// Раздача статических файлов
+// Раздача статических файлов (загруженные аудио и обложки)
 app.use('/uploads', express.static(uploadsDir));
+
+// Вспомогательная функция для генерации slug
+function makeSlug(name) {
+    return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+}
+
+// ===================== HEALTH =====================
+
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
 
 // ===================== USERS =====================
 
+// Получить всех пользователей
 app.get('/api/users', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM public.users ORDER BY id');
@@ -77,6 +65,7 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// Получить пользователя по ID
 app.get('/api/users/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -89,12 +78,13 @@ app.get('/api/users/:id', async (req, res) => {
     }
 });
 
+// Создать пользователя
 app.post('/api/users', async (req, res) => {
     try {
-        const { username } = req.body;
+        const { username, bio } = req.body;
         const result = await pool.query(
-            'INSERT INTO public.users (username) VALUES ($1) RETURNING *',
-            [username]
+            'INSERT INTO public.users (username, bio) VALUES ($1, $2) RETURNING *',
+            [username, bio || '']
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -103,8 +93,39 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
+// Обновить пользователя
+app.put('/api/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { username, bio } = req.body;
+        const result = await pool.query(
+            'UPDATE public.users SET username = COALESCE($1, username), bio = COALESCE($2, bio) WHERE id = $3 RETURNING *',
+            [username, bio, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Удалить пользователя
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('DELETE FROM public.users WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'User deleted', user: result.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===================== ARTISTS =====================
 
+// Получить всех артистов
 app.get('/api/artists', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM public.artists ORDER BY id');
@@ -115,21 +136,68 @@ app.get('/api/artists', async (req, res) => {
     }
 });
 
+// Получить артиста по ID
+app.get('/api/artists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM public.artists WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Artist not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Создать артиста
 app.post('/api/artists', async (req, res) => {
     try {
-        const { artist, trackscount, about, photo_url, user_id } = req.body;
+        const { artist, trackscount, about, photo_url, color } = req.body;
+        const slug = makeSlug(artist);
         const result = await pool.query(
-            'INSERT INTO public.artists (artist, trackscount, about, photo_url) VALUES ($1, $2, $3, $4) RETURNING *',
-            [artist, trackscount || 0, about || '', photo_url || '']
+            `INSERT INTO public.artists (artist, slug, trackscount, about, photo_url, color)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [artist, slug, trackscount || 0, about || '', photo_url || '', color || '#ff6b00']
         );
-        if (user_id) {
-            await pool.query(
-                `INSERT INTO public.user_library_artists (user_id, artist_id)
-                 VALUES ($1, $2) ON CONFLICT (user_id, artist_id) DO NOTHING`,
-                [user_id, result.rows[0].id]
-            );
-        }
         res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Обновить артиста
+app.put('/api/artists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { artist, trackscount, about, photo_url, color } = req.body;
+        const slug = artist ? makeSlug(artist) : null;
+        const result = await pool.query(
+            `UPDATE public.artists SET
+                artist = COALESCE($1, artist),
+                slug = COALESCE($2, slug),
+                trackscount = COALESCE($3, trackscount),
+                about = COALESCE($4, about),
+                photo_url = COALESCE($5, photo_url),
+                color = COALESCE($6, color)
+             WHERE id = $7 RETURNING *`,
+            [artist, slug, trackscount, about, photo_url, color, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Artist not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Удалить артиста
+app.delete('/api/artists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('DELETE FROM public.artists WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Artist not found' });
+        res.json({ message: 'Artist deleted', artist: result.rows[0] });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
@@ -138,10 +206,16 @@ app.post('/api/artists', async (req, res) => {
 
 // ===================== TRACKS =====================
 
-// Получить все треки
+// Получить все треки (с JOIN artists)
 app.get('/api/tracks', async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM public.tracks ORDER BY id');
+        const result = await pool.query(`
+            SELECT t.*, a.about AS artist_about, a.trackscount AS artist_trackscount,
+                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
+            FROM public.tracks t
+            JOIN public.artists a ON t.artist = a.artist
+            ORDER BY t.id
+        `);
         res.json(result.rows);
     } catch (err) {
         console.error(err.message);
@@ -149,54 +223,42 @@ app.get('/api/tracks', async (req, res) => {
     }
 });
 
-// Создать трек (ПРИНИМАЕТ ТОЛЬКО JSON)
+// Получить трек по ID
+app.get('/api/tracks/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(`
+            SELECT t.*, a.about AS artist_about, a.trackscount AS artist_trackscount,
+                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
+            FROM public.tracks t
+            JOIN public.artists a ON t.artist = a.artist
+            WHERE t.id = $1
+        `, [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Создать трек
 app.post('/api/tracks', async (req, res) => {
     try {
-        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url } = req.body;
-        
-        if (!title || !artist) {
-            return res.status(400).json({ error: 'Поля title и artist обязательны' });
-        }
-
+        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
         const result = await pool.query(
-            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url, cover_url)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '']
+            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url, cover_url, color)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '', color || '#ff6b00']
         );
-
-        const trackRow = result.rows[0];
-        if (user_id) {
-            await pool.query(
-                `INSERT INTO public.user_library_tracks (user_id, track_id)
-                 VALUES ($1, $2) ON CONFLICT (user_id, track_id) DO NOTHING`,
-                [user_id, trackRow.id]
-            );
-            const artistRow = await pool.query(
-                'SELECT id FROM public.artists WHERE artist = $1',
-                [artist]
-            );
-            if (artistRow.rows.length > 0) {
-                await pool.query(
-                    `INSERT INTO public.user_library_artists (user_id, artist_id)
-                     VALUES ($1, $2) ON CONFLICT (user_id, artist_id) DO NOTHING`,
-                    [user_id, artistRow.rows[0].id]
-                );
-            }
-        }
-        
-        // Безопасное обновление счетчика у артиста
-        try {
-            await pool.query(
-                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-                [artist]
-            );
-        } catch (e) {
-            console.error('Не удалось обновить счетчик артиста:', e.message);
-        }
-
+        // Обновляем trackscount у артиста
+        await pool.query(
+            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
+            [artist]
+        );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        console.error('Ошибка БД:', err.message);
+        console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -205,8 +267,7 @@ app.post('/api/tracks', async (req, res) => {
 app.put('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url } = req.body;
-        
+        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
         const result = await pool.query(
             `UPDATE public.tracks SET
                 title = COALESCE($1, title),
@@ -215,19 +276,12 @@ app.put('/api/tracks/:id', async (req, res) => {
                 isliked = COALESCE($4, isliked),
                 user_id = COALESCE($5, user_id),
                 audio_url = COALESCE($6, audio_url),
-                cover_url = COALESCE($7, cover_url)
-             WHERE id = $8 RETURNING *`,
-            [title, artist, lyrics, isliked, user_id, audio_url, cover_url, id]
+                cover_url = COALESCE($7, cover_url),
+                color = COALESCE($8, color)
+             WHERE id = $9 RETURNING *`,
+            [title, artist, lyrics, isliked, user_id, audio_url, cover_url, color, id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
-        
-        if (artist) {
-            await pool.query(
-                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-                [artist]
-            );
-        }
-        
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err.message);
@@ -235,20 +289,20 @@ app.put('/api/tracks/:id', async (req, res) => {
     }
 });
 
+// Удалить трек
 app.delete('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const track = await pool.query('SELECT artist FROM public.tracks WHERE id = $1', [id]);
-        if (track.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
-        
-        const artistName = track.rows[0].artist; // ИСПРАВЛЕНО: добавлен индекс [0]
-        
         const result = await pool.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
-        
-        await pool.query(
-            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-            [artistName]
-        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
+        // Обновляем trackscount у артиста
+        if (track.rows.length > 0) {
+            await pool.query(
+                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
+                [track.rows[0].artist]
+            );
+        }
         res.json({ message: 'Track deleted', track: result.rows[0] });
     } catch (err) {
         console.error(err.message);
@@ -256,44 +310,18 @@ app.delete('/api/tracks/:id', async (req, res) => {
     }
 });
 
-
-// ===================== FILE UPLOAD =====================
-
-// Загрузка аудиофайла (возвращает ТОЛЬКО урл)
-app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl }); // Фронтенд возьмет эту строку
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Загрузка обложки
-app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-        const fileUrl = `/uploads/${req.file.filename}`;
-        res.json({ url: fileUrl }); // Фронтенд возьмет эту строку
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-
 // ===================== USER LIBRARY TRACKS =====================
 
+// Получить библиотеку треков пользователя
 app.get('/api/users/:userId/library/tracks', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
+        const { userId } = req.params;
         const result = await pool.query(`
-            SELECT t.*, ult.added_at
+            SELECT t.*, ult.added_at, a.about AS artist_about, a.trackscount AS artist_trackscount,
+                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
             FROM public.user_library_tracks ult
             JOIN public.tracks t ON ult.track_id = t.id
+            JOIN public.artists a ON t.artist = a.artist
             WHERE ult.user_id = $1
             ORDER BY ult.added_at DESC
         `, [userId]);
@@ -304,36 +332,26 @@ app.get('/api/users/:userId/library/tracks', async (req, res) => {
     }
 });
 
+// Добавить трек в библиотеку пользователя
 app.post('/api/users/:userId/library/tracks', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
+        const { userId } = req.params;
         const { track_id } = req.body;
-        
         const result = await pool.query(
-            `INSERT INTO public.user_library_tracks (user_id, track_id) 
-             VALUES ($1, $2) 
-             ON CONFLICT (user_id, track_id) DO NOTHING 
-             RETURNING *`,
+            'INSERT INTO public.user_library_tracks (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
             [userId, track_id]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(409).json({ message: 'Track already in library' });
-        }
-        
-        res.status(201).json(result.rows[0]);
+        res.status(201).json(result.rows[0] || { user_id: userId, track_id });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
+// Удалить трек из библиотеки пользователя
 app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
-        const trackId = Number.parseInt(req.params.trackId, 10);
+        const { userId, trackId } = req.params;
         const result = await pool.query(
             'DELETE FROM public.user_library_tracks WHERE user_id = $1 AND track_id = $2 RETURNING *',
             [userId, trackId]
@@ -348,10 +366,10 @@ app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
 
 // ===================== USER LIBRARY ARTISTS =====================
 
+// Получить подписки пользователя на артистов
 app.get('/api/users/:userId/library/artists', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
+        const { userId } = req.params;
         const result = await pool.query(`
             SELECT a.*, ula.added_at
             FROM public.user_library_artists ula
@@ -366,36 +384,26 @@ app.get('/api/users/:userId/library/artists', async (req, res) => {
     }
 });
 
+// Подписаться на артиста
 app.post('/api/users/:userId/library/artists', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
+        const { userId } = req.params;
         const { artist_id } = req.body;
-        
         const result = await pool.query(
-            `INSERT INTO public.user_library_artists (user_id, artist_id) 
-             VALUES ($1, $2) 
-             ON CONFLICT (user_id, artist_id) DO NOTHING 
-             RETURNING *`,
+            'INSERT INTO public.user_library_artists (user_id, artist_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
             [userId, artist_id]
         );
-        
-        if (result.rows.length === 0) {
-            return res.status(409).json({ message: 'Already subscribed to this artist' });
-        }
-        
-        res.status(201).json(result.rows[0]);
+        res.status(201).json(result.rows[0] || { user_id: userId, artist_id });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
+// Отписаться от артиста
 app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
-        const artistId = Number.parseInt(req.params.artistId, 10);
+        const { userId, artistId } = req.params;
         const result = await pool.query(
             'DELETE FROM public.user_library_artists WHERE user_id = $1 AND artist_id = $2 RETURNING *',
             [userId, artistId]
@@ -408,59 +416,92 @@ app.delete('/api/users/:userId/library/artists/:artistId', async (req, res) => {
     }
 });
 
-// Подтянуть в библиотеку треки/артистов, созданные с user_id, но без связи в user_library_*
+// ===================== SYNC LIBRARY =====================
+
+// Связать треки с user_id и их артистов с библиотекой пользователя
 app.post('/api/users/:userId/library/sync', async (req, res) => {
+    const client = await pool.connect();
     try {
-        const userId = parseUserId(req.params.userId, res);
-        if (userId == null) return;
-        const tracks = await pool.query(
-            `INSERT INTO public.user_library_tracks (user_id, track_id)
-             SELECT $1::int, t.id FROM public.tracks t
-             WHERE t.user_id = $1::int
-             AND NOT EXISTS (
-                 SELECT 1 FROM public.user_library_tracks ult
-                 WHERE ult.user_id = $1::int AND ult.track_id = t.id
-             )
-             RETURNING track_id`,
-            [userId]
-        );
-        const artists = await pool.query(
-            `INSERT INTO public.user_library_artists (user_id, artist_id)
-             SELECT DISTINCT $1::int, a.id
-             FROM public.tracks t
-             JOIN public.artists a ON a.artist = t.artist
-             WHERE t.user_id = $1::int
-             AND NOT EXISTS (
-                 SELECT 1 FROM public.user_library_artists ula
-                 WHERE ula.user_id = $1::int AND ula.artist_id = a.id
-             )
-             RETURNING artist_id`,
-            [userId]
-        );
-        res.json({
-            tracks_added: tracks.rowCount,
-            artists_added: artists.rowCount,
-        });
+        const { userId } = req.params;
+        await client.query('BEGIN');
+
+        // Найти все треки этого пользователя
+        const tracksRes = await client.query('SELECT id, artist FROM public.tracks WHERE user_id = $1', [userId]);
+        let tracksAdded = 0;
+        let artistsAdded = 0;
+
+        for (const track of tracksRes.rows) {
+            // Добавить трек в библиотеку, если ещё нет
+            const ins = await client.query(
+                'INSERT INTO public.user_library_tracks (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+                [userId, track.id]
+            );
+            if (ins.rows.length > 0) tracksAdded++;
+
+            // Найти артиста и подписать пользователя
+            const artRes = await client.query('SELECT id FROM public.artists WHERE artist = $1', [track.artist]);
+            if (artRes.rows.length > 0) {
+                const insArt = await client.query(
+                    'INSERT INTO public.user_library_artists (user_id, artist_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+                    [userId, artRes.rows[0].id]
+                );
+                if (insArt.rows.length > 0) artistsAdded++;
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ tracks_added: tracksAdded, artists_added: artistsAdded });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ===================== FILE UPLOAD =====================
+
+// Загрузка аудиофайла
+app.post('/api/upload/audio', upload.single('audio'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.filename });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// Глобальная обработка ошибок Multer (опционально, защищает от падения при неверных файлах)
-app.use((err, req, res, next) => {
-    if (err instanceof multer.MulterError) {
-        return res.status(400).json({ error: `Multer error: ${err.message}` });
-    } else if (err) {
-        return res.status(400).json({ error: err.message });
+// Загрузка обложки/изображения
+app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        const fileUrl = `/uploads/${req.file.filename}`;
+        res.json({ url: fileUrl, filename: req.file.filename });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
     }
-    next();
 });
+
+// ===================== ИНИЦИАЛИЗАЦИЯ БД =====================
+
+async function initDB() {
+    try {
+        const sql = fs.readFileSync(path.join(__dirname, 'init.sql'), 'utf8');
+        await pool.query(sql);
+        console.log('Database initialized (init.sql applied)');
+    } catch (err) {
+        console.error('init.sql error:', err.message);
+    }
+}
 
 // ===================== ЗАПУСК СЕРВЕРА =====================
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
+    await initDB();
 });
-

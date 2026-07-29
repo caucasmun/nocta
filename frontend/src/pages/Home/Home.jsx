@@ -49,10 +49,10 @@ function Home() {
 
     // Resolve cover from uploaded files
     useEffect(() => {
-        if (currentTrack?.cover) {
-            getFile(currentTrack.cover).then(url => {
+        if (currentTrack?.cover_url) {
+            getFile(currentTrack.cover_url).then(url => {
                 if (url) setCoverSrc(url);
-                else setCoverSrc(currentTrack.cover);
+                else setCoverSrc(currentTrack.cover_url);
             });
         } else {
             setCoverSrc('');
