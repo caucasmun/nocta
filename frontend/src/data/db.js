@@ -2,7 +2,6 @@
 import * as api from './api';
 
 const SESSION_KEY = 'nocta_session';
-const API_URL = import.meta.env.VITE_API_URL /*|| 'https://nocta-backend-3dqm.onrender.com'*/;
 
 // ===== Session =====
 export function saveSession(user) {
@@ -174,35 +173,11 @@ export async function getLikedTracks(userId) {
 
 // ===== File upload =====
 export async function uploadAudio(file) {
-    const formData = new FormData();
-    formData.append('audio', file);
-    
-    // Безопасно склеиваем путь: убираем лишнее дублирование /api, если оно есть в VITE_API_URL
-    const base = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
-    
-    const res = await fetch(`${base}/api/upload/audio`, {
-        method: 'POST',
-        body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    return data.url;
+    return api.uploadAudio(file);
 }
 
 export async function uploadImage(file) {
-    const formData = new FormData();
-    formData.append('cover', file); // Ключ multer на бэкенде — 'cover'
-    
-    const base = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
-    
-    // Исправлен эндпоинт на /cover, так как бэкенд ждет именно его
-    const res = await fetch(`${base}/api/upload/cover`, {
-        method: 'POST',
-        body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    return data.url;
+    return api.uploadImage(file);
 }
 
 // ===== Initialize (no-op for API mode) =====
@@ -215,9 +190,10 @@ export async function getFile(url) {
     if (!url) return null;
     if (url.startsWith('http') || url.startsWith('data:')) return url;
     
-    // Если бэкенд возвращает относительный путь /uploads/..., привязываем его к серверу Render
-    const base = API_URL.endsWith('/api') ? API_URL.slice(0, -4) : API_URL;
-    return `${base}${url}`;
+    // Если бэкенд возвращает относительный путь /uploads/..., используем API_BASE из api.js
+    const base = api.API_BASE || '/api';
+    const prefix = base.endsWith('/api') ? base.slice(0, -4) : base;
+    return `${prefix}${url}`;
 }
 
 export async function storeFile(file) {
