@@ -1,5 +1,5 @@
-const RAW_API = import.meta.env.VITE_API_URL || 'https://nocta-backend-3dqm.onrender.com';
-const API_ORIGIN = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '') || 'https://nocta-backend-3dqm.onrender.com';
+const RAW_API = import.meta.env.VITE_API_URL /*|| 'https://nocta-backend-3dqm.onrender.com' */;
+const API_ORIGIN = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '') /*|| 'https://nocta-backend-3dqm.onrender.com'*/;
 const API_BASE = `${API_ORIGIN}/api`;
 
 export { API_ORIGIN, API_BASE };

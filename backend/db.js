@@ -2,20 +2,21 @@ require('dotenv').config();
 
 const { Pool } = require('pg');
 
-// Локально: .env с localhost ИЛИ без DATABASE_URL
-// Render: Environment → DATABASE_URL = URI из Supabase (Session/Transaction pooler)
-const rawUrl =
-    process.env.DATABASE_URL ||
-    'postgresql://postgres:28172817@localhost:5432/postgres';
+// Поддержка локальной и облачной базы данных
+const rawUrl = process.env.DATABASE_URL;
 
-const isLocal =
-    /localhost|127\.0\.0\.1/.test(rawUrl) ||
-    process.env.DB_SSL === 'false';
+if (!rawUrl) {
+    console.error('Ошибка: DATABASE_URL не задан в backend/.env');
+    console.error('Пример для локальной базы:');
+    console.error('DATABASE_URL=postgresql://postgres:password@localhost:5432/nocta');
+    process.exit(1);
+}
+
+const isLocal = /localhost|127\.0\.0\.1/.test(rawUrl);
 
 function buildConnectionString(url) {
     if (isLocal) return url;
-    // Supabase: self-signed в цепочке → sslmode=no-verify
-    // (иначе на Render часто: "Connection terminated unexpectedly" / cert errors)
+    // Для облачных баз (Supabase, Render) добавляем sslmode=no-verify
     if (/[?&]sslmode=/.test(url)) return url;
     const sep = url.includes('?') ? '&' : '?';
     return `${url}${sep}sslmode=no-verify`;
@@ -25,7 +26,6 @@ const connectionString = buildConnectionString(rawUrl);
 
 const pool = new Pool({
     connectionString,
-    // Явный ssl только для облака; для localhost — false
     ssl: isLocal ? false : { rejectUnauthorized: false },
     max: Number(process.env.DB_POOL_MAX || 3),
     idleTimeoutMillis: 10_000,

@@ -5,7 +5,9 @@
   "main": "db.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "init-db": "psql $DATABASE_URL -f init.sql",
+    "setup-local": "echo 'Создайте базу данных nocta в PostgreSQL, затем запустите: npm run init-db'"
   },
   "keywords": [],
   "author": "",
