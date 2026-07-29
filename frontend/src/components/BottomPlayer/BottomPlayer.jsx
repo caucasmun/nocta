@@ -61,11 +61,6 @@ function BottomPlayer() {
         }
     }, [currentTrack]);
 
-    // Hide BottomPlayer on the home page
-    if (location.pathname === '/' || location.pathname === '') {
-        return null;
-    }
-
     if (!hasStarted || !currentTrack) {
         return null;
     }

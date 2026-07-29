@@ -18,6 +18,12 @@ function LeftNav() {
                 <div className={cn.navBar}>
                     {/* Logo */}
                     <Link to="/" className={cn.logo}>
+                        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style={{ flexShrink: 0 }}>
+                            <circle cx="16" cy="16" r="16" fill="#1db954"/>
+                            <path d="M10 22V8l12 4v10" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                            <circle cx="10" cy="22" r="2.5" fill="#fff"/>
+                            <circle cx="22" cy="22" r="2.5" fill="#fff"/>
+                        </svg>
                         <span className={cn.logoText}>Nocta</span>
                     </Link>
 

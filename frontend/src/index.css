@@ -143,8 +143,4 @@ body::-webkit-scrollbar {
     }
   }
 
-  @media (max-width: 768px) {
-    .main-content {
-      padding-bottom: 128px;
-    }
-  }
+  

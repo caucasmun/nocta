@@ -276,15 +276,20 @@ function AddContent() {
                                 background: '#1a1a1a',
                                 border: '1px solid #333',
                                 borderRadius: '8px',
-                                maxHeight: '220px',
-                                overflowY: 'auto',
                                 zIndex: 100,
                                 marginTop: '4px',
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                                display: 'flex',
+                                flexDirection: 'column',
                             }}>
                                 {filteredArtists.length > 0 && (
-                                    <>
-                                        {filteredArtists.slice(0, 10).map(a => (
+                                    <div style={{
+                                        maxHeight: '180px',
+                                        overflowY: 'auto',
+                                        scrollbarWidth: 'thin',
+                                        scrollbarColor: '#444 #1a1a1a',
+                                    }}>
+                                        {filteredArtists.map(a => (
                                             <div
                                                 key={a.id}
                                                 onClick={() => handleArtistSelect(a.artist)}
@@ -321,7 +326,7 @@ function AddContent() {
                                                 <span>{a.artist}</span>
                                             </div>
                                         ))}
-                                    </>
+                                    </div>
                                 )}
                                 {artist.trim() && !isExistingArtist && (
                                     <div

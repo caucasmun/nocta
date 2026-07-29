@@ -2,7 +2,7 @@
 
 ## Требования
 - Node.js 18+
-- PostgreSQL (локально, пользователь `postgres`, пароль из `backend/.env`)
+- PostgreSQL (локально)
 
 ## Структура
 - `backend/` — Express + PostgreSQL API (порт 5000)
@@ -11,21 +11,26 @@
 ## Быстрый старт
 
 ### 1. База данных PostgreSQL
-Создайте базу `nocta` (если её нет):
+Создайте базу `nocta`:
 ```sql
 CREATE DATABASE nocta;
 ```
+
 Таблицы создаются автоматически при запуске бэкенда (через `init.sql`).
 
-Настройки подключения — в `backend/.env`:
-```
+Настройки подключения — в `backend/.env`. Создайте файл:
+
+```env
+# backend/.env
 PGUSER=postgres
-PGPASSWORD=28172817
+PGPASSWORD=your_password_here
 PGDATABASE=nocta
 PGHOST=localhost
 PGPORT=5432
 PORT=5000
 ```
+
+Замените `your_password_here` на ваш реальный пароль PostgreSQL.
 
 ### 2. Бэкенд
 ```bash
@@ -44,7 +49,7 @@ npm run dev
 ```
 Приложение откроется на `http://localhost:5173`.
 
-Настройки API — в `frontend/.env`:
+Настройки API — в `frontend/.env` (опционально, по умолчанию `http://localhost:5000`):
 ```
 VITE_API_URL=http://localhost:5000
 ```

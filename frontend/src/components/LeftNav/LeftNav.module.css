@@ -165,7 +165,7 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-top: 1px solid #282828;
-    z-index: 1100;
+    z-index: 1400;
     justify-content: space-around;
     align-items: center;
     padding: 0 4px;
@@ -180,14 +180,16 @@
     gap: 2px;
     color: #727272;
     text-decoration: none;
-    padding: 8px 12px;
+    padding: 8px 6px;
     border-radius: 8px;
     transition: color 0.2s;
+    flex-shrink: 0;
+    min-width: 0;
 }
 
 .mobileLink svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
 }
 
 .mobileLink.mobileActive {

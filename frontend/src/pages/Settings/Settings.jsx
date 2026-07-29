@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getSession, saveSession } from '../../data/db';
-import { updateUser as apiUpdateUser } from '../../data/api';
+import { getSession } from '../../data/db';
 import cn from './Settings.module.css';
 
 function Settings() {
@@ -10,8 +9,6 @@ function Settings() {
     const { user, logout } = useAuth();
     const [username, setUsername] = useState('');
     const [bio, setBio] = useState('');
-    const [success, setSuccess] = useState('');
-    const [error, setError] = useState('');
 
     useEffect(() => {
         if (!user) {
@@ -25,28 +22,6 @@ function Settings() {
             setBio(session.bio || '');
         }
     }, [user, navigate]);
-
-    const handleSave = async (e) => {
-        e.preventDefault();
-        setError('');
-        setSuccess('');
-
-        if (!username.trim()) {
-            setError('Имя пользователя не может быть пустым');
-            return;
-        }
-
-        try {
-            // Сохраняем изменения на бэкенде
-            const updatedUser = await apiUpdateUser(user.id, username.trim(), bio.trim());
-            // Обновляем сессию локально
-            saveSession(updatedUser);
-            setSuccess('Профиль обновлен!');
-            setTimeout(() => setSuccess(''), 2000);
-        } catch (err) {
-            setError(err.message || 'Ошибка при сохранении');
-        }
-    };
 
     const handleLogout = () => {
         logout();
@@ -68,10 +43,7 @@ function Settings() {
                 </Link>
                 <h1 className={cn.title}>Настройки профиля</h1>
 
-                {success && <p className={cn.success}>{success}</p>}
-                {error && <p className={cn.error}>{error}</p>}
-
-                <form className={cn.form} onSubmit={handleSave}>
+                <div className={cn.form}>
                     <div className={cn.avatarSection}>
                         <div className={cn.avatar}>
                             {username.charAt(0).toUpperCase()}
@@ -80,40 +52,20 @@ function Settings() {
 
                     <div className={cn.field}>
                         <label className={cn.label}>Имя пользователя</label>
-                        <input
-                            type="text"
-                            className={cn.input}
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Введите имя пользователя"
-                        />
+                        <p className={cn.value}>{username}</p>
                     </div>
 
                     <div className={cn.field}>
                         <label className={cn.label}>О себе</label>
-                        <textarea
-                            className={cn.textarea}
-                            value={bio}
-                            onChange={(e) => setBio(e.target.value)}
-                            placeholder="Расскажите о себе"
-                            rows={4}
-                        />
+                        <p className={cn.value}>{bio || '—'}</p>
                     </div>
 
                     <div className={cn.field}>
                         <label className={cn.label}>ID пользователя</label>
-                        <input
-                            type="text"
-                            className={cn.input}
-                            value={user.id}
-                            disabled
-                        />
+                        <p className={cn.value}>{user.id}</p>
                     </div>
 
                     <div className={cn.actions}>
-                        <button type="submit" className={cn.saveBtn}>
-                            Сохранить изменения
-                        </button>
                         <button 
                             type="button" 
                             className={cn.logoutBtn}
@@ -122,7 +74,7 @@ function Settings() {
                             Выйти из аккаунта
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
         </section>
     );

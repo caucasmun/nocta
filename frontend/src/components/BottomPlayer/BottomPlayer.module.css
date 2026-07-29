@@ -431,6 +431,20 @@
     cursor: pointer;
 }
 
+/* Hide BottomPlayer on desktop home page (Home has its own player) */
+@media (min-width: 769px) {
+    .player.homePage {
+        display: none;
+    }
+}
+
+/* On mobile, hide BottomPlayer entirely - player only on Home page */
+@media (max-width: 768px) {
+    .player {
+        display: none !important;
+    }
+}
+
 /* ===== Mobile Responsive ===== */
 @media (max-width: 768px) {
     .player {
@@ -438,6 +452,7 @@
         padding: 0 10px;
         gap: 4px;
         bottom: 0;
+        z-index: 1300;
     }
 
     .trackInfo {
@@ -517,7 +532,7 @@
     }
 
     .right .ctrlBtn {
-        display: flex;
+        display: none;
     }
 
     .lyricsPanel {
