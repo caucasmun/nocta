@@ -67,7 +67,7 @@ function AddContent() {
                 return;
             }
             if (file.size > 5 * 1024 * 1024) {
-                setError('Изображение слишком большое. Максимум: 5MB');
+                setError('Изображение слишком большое! Максимум: 5MB');
                 return;
             }
             setError('');
