@@ -278,7 +278,47 @@
 
 .cover-artist-name:hover {
   color: #ffffff;
+}
+
+.artist-link {
+  cursor: pointer;
+  transition: color 0.2s, text-decoration 0.2s;
+}
+
+.artist-link:hover {
+  color: #ffffff;
   text-decoration: underline;
+}
+
+.feat-separator {
+  color: #8b8a8a;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cover-artist-name .trackArtistsList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+}
+
+.cover-artist-name .trackArtist {
+  color: #b3b3b3;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.cover-artist-name .trackArtist:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.cover-artist-name .featSeparator {
+  color: #666;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* ======================================================= */

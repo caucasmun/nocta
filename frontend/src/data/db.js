@@ -55,10 +55,12 @@ export async function getTracks(userId) {
 
 export async function addTrack(userId, track) {
     try {
-        // Create the track in the database
+        // Create the track in the database with multiple artists support
+        const artistIds = track.artists || (track.artist ? [track.artist] : []);
+        
         const newTrack = await api.createTrack({
             title: track.title,
-            artist: track.artist,
+            artists: artistIds,
             lyrics: track.lyrics || '',
             isliked: false,
             user_id: userId,
@@ -70,22 +72,13 @@ export async function addTrack(userId, track) {
         // Add to user's library
         await api.addTrackToLibrary(userId, newTrack.id);
 
-        // Auto-add artist if not exists
-        const artists = await api.fetchArtists();
-        const existingArtist = artists.find(a => a.artist === track.artist);
-        if (!existingArtist) {
-            const newArtist = await api.createArtist({
-                artist: track.artist,
-                trackscount: 1,
-                about: track.about || '',
-            });
-            await api.addArtistToLibrary(userId, newArtist.id);
-        } else {
-            // Check if user is subscribed to this artist
-            const userArtists = await api.fetchUserLibraryArtists(userId);
-            const isSubscribed = userArtists.some(a => a.id === existingArtist.id);
-            if (!isSubscribed) {
-                await api.addArtistToLibrary(userId, existingArtist.id);
+        // Auto-subscribe to all artists if not already subscribed
+        const userArtists = await api.fetchUserLibraryArtists(userId);
+        const subscribedArtistIds = userArtists.map(a => a.id);
+        
+        for (const artistId of artistIds) {
+            if (!subscribedArtistIds.includes(artistId)) {
+                await api.addArtistToLibrary(userId, artistId);
             }
         }
 
@@ -195,6 +188,8 @@ export async function getFile(url) {
     const origin = api.API_ORIGIN || 'http://localhost:5000';
     return `${origin}${url}`;
 }
+
+export { fetchTrackArtists } from './api';
 
 export async function storeFile(file) {
     if (file.type.startsWith('audio/')) {

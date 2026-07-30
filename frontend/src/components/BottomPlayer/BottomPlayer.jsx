@@ -41,13 +41,16 @@ function BottomPlayer() {
         }
     }, [user]);
 
-    const goToArtist = () => {
-        if (!currentTrack) return;
-        const slug = currentTrack.artist?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
-        if (slug) {
-            navigate(`/artist/${slug}`);
+    const goToArtist = (artistSlug) => {
+        if (artistSlug) {
+            navigate(`/artist/${artistSlug}`);
         }
     };
+
+    // Use track_artists from currentTrack (returned by backend), fallback to single artist
+    const trackArtists = (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists) && currentTrack.track_artists.length > 0)
+        ? currentTrack.track_artists
+        : (currentTrack?.artist ? [{ artist_id: null, artist: currentTrack.artist, slug: currentTrack.artist_slug, is_primary: true }] : []);
 
     // Resolve cover
     useEffect(() => {
@@ -90,7 +93,14 @@ function BottomPlayer() {
                     <div className={cn.lyricsPanel} onClick={e => e.stopPropagation()}>
                         <div className={cn.lyricsPanelHeader}>
                             <p className={cn.lyricsSongName}>{currentTrack.title}</p>
-                            <p className={cn.lyricsArtistName}>{currentTrack.artist}</p>
+                            <p className={cn.lyricsArtistName}>
+                                {trackArtists.map((ta, idx) => (
+                                    <span key={idx}>
+                                        {ta.artist}
+                                        {idx < trackArtists.length - 1 && ' feat. '}
+                                    </span>
+                                ))}
+                            </p>
                             <button className={cn.lyricsClose} onClick={() => setShowLyrics(false)}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -130,7 +140,21 @@ function BottomPlayer() {
                     </div>
                     <div className={cn.trackMeta}>
                         <p className={cn.trackTitle}>{currentTrack.title}</p>
-                        <p className={cn.trackArtist} onClick={goToArtist} role="button" tabIndex={0}>{currentTrack.artist}</p>
+                        <div className={cn.trackArtistsList}>
+                            {trackArtists.map((ta, idx) => (
+                                <span key={ta.artist_id}>
+                                    <span 
+                                        className={cn.trackArtistLink}
+                                        onClick={() => goToArtist(ta.slug)}
+                                        role="button"
+                                        tabIndex={0}
+                                    >
+                                        {ta.artist}
+                                    </span>
+                                    {idx < trackArtists.length - 1 && <span className={cn.featSeparator}> feat. </span>}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                     <button
                         className={`${cn.likeBtn} ${isLiked ? cn.liked : ''}`}

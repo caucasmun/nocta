@@ -206,15 +206,45 @@ app.delete('/api/artists/:id', async (req, res) => {
 
 // ===================== TRACKS =====================
 
-// Получить все треки (с JOIN artists)
+// Получить все треки (с массивом исполнителей track_artists)
 app.get('/api/tracks', async (req, res) => {
     try {
         const result = await pool.query(`
-            SELECT t.*, a.about AS artist_about, a.trackscount AS artist_trackscount,
-                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
+            SELECT t.*,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
             FROM public.tracks t
-            JOIN public.artists a ON t.artist = a.artist
-            ORDER BY t.id
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
+            GROUP BY t.id
+            ORDER BY t.id DESC
         `);
         res.json(result.rows);
     } catch (err) {
@@ -223,16 +253,46 @@ app.get('/api/tracks', async (req, res) => {
     }
 });
 
-// Получить трек по ID
+// Получить трек по ID (с массивом исполнителей track_artists)
 app.get('/api/tracks/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query(`
-            SELECT t.*, a.about AS artist_about, a.trackscount AS artist_trackscount,
-                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
+            SELECT t.*,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
             FROM public.tracks t
-            JOIN public.artists a ON t.artist = a.artist
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
             WHERE t.id = $1
+            GROUP BY t.id
         `, [id]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
         res.json(result.rows[0]);
@@ -242,87 +302,366 @@ app.get('/api/tracks/:id', async (req, res) => {
     }
 });
 
-// Создать трек
+// Создать трек с поддержкой нескольких исполнителей
 app.post('/api/tracks', async (req, res) => {
+    const client = await pool.connect();
     try {
-        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
-        const result = await pool.query(
-            `INSERT INTO public.tracks (title, artist, lyrics, isliked, user_id, audio_url, cover_url, color)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-            [title, artist, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '', color || '#ff6b00']
+        const { title, artists, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
+        // artists: массив [{artist_id: 1, is_primary: true}, ...] или массив ID
+        const artistIds = Array.isArray(artists) 
+            ? artists.map(a => typeof a === 'object' ? a.artist_id : a)
+            : [artists];
+        
+        await client.query('BEGIN');
+        
+        const result = await client.query(
+            `INSERT INTO public.tracks (title, lyrics, isliked, user_id, audio_url, cover_url, color)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [title, lyrics || '', isliked || false, user_id || null, audio_url || '', cover_url || '', color || '#ff6b00']
         );
-        // Обновляем trackscount у артиста
-        await pool.query(
-            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-            [artist]
-        );
-        res.status(201).json(result.rows[0]);
+        const trackId = result.rows[0].id;
+        
+        // Создаем связи с исполнителями
+        for (let i = 0; i < artistIds.length; i++) {
+            const isPrimary = i === 0; // Первый исполнитель - основной
+            await client.query(
+                'INSERT INTO public.track_artists (track_id, artist_id, is_primary) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+                [trackId, artistIds[i], isPrimary]
+            );
+        }
+        
+        // Обновляем trackscount у всех артистов
+        for (const artistId of artistIds) {
+            await client.query(
+                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.track_artists WHERE artist_id = $1) WHERE id = $1',
+                [artistId]
+            );
+        }
+        
+        await client.query('COMMIT');
+        
+        // Возвращаем трек с массивом исполнителей
+        const trackWithArtist = await pool.query(`
+            SELECT t.*,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
+            FROM public.tracks t
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
+            WHERE t.id = $1
+            GROUP BY t.id
+        `, [trackId]);
+        
+        res.status(201).json(trackWithArtist.rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
 // Обновить трек
 app.put('/api/tracks/:id', async (req, res) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
-        const { title, artist, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
-        const result = await pool.query(
+        const { title, artists, lyrics, isliked, user_id, audio_url, cover_url, color } = req.body;
+        
+        await client.query('BEGIN');
+        
+        // Обновляем основные поля трека
+        const result = await client.query(
             `UPDATE public.tracks SET
                 title = COALESCE($1, title),
-                artist = COALESCE($2, artist),
-                lyrics = COALESCE($3, lyrics),
-                isliked = COALESCE($4, isliked),
-                user_id = COALESCE($5, user_id),
-                audio_url = COALESCE($6, audio_url),
-                cover_url = COALESCE($7, cover_url),
-                color = COALESCE($8, color)
-             WHERE id = $9 RETURNING *`,
-            [title, artist, lyrics, isliked, user_id, audio_url, cover_url, color, id]
+                lyrics = COALESCE($2, lyrics),
+                isliked = COALESCE($3, isliked),
+                user_id = COALESCE($4, user_id),
+                audio_url = COALESCE($5, audio_url),
+                cover_url = COALESCE($6, cover_url),
+                color = COALESCE($7, color)
+             WHERE id = $8 RETURNING *`,
+            [title, lyrics, isliked, user_id, audio_url, cover_url, color, id]
         );
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
-        res.json(result.rows[0]);
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Track not found' });
+        }
+        
+        // Если переданы artists - обновляем связи
+        if (artists && Array.isArray(artists)) {
+            const artistIds = artists.map(a => typeof a === 'object' ? a.artist_id : a);
+            
+            // Удаляем старые связи
+            await client.query('DELETE FROM public.track_artists WHERE track_id = $1', [id]);
+            
+            // Создаем новые связи
+            for (let i = 0; i < artistIds.length; i++) {
+                const isPrimary = i === 0;
+                await client.query(
+                    'INSERT INTO public.track_artists (track_id, artist_id, is_primary) VALUES ($1, $2, $3)',
+                    [id, artistIds[i], isPrimary]
+                );
+            }
+        }
+        
+        await client.query('COMMIT');
+        
+        // Возвращаем обновленный трек с массивом исполнителей
+        const updated = await pool.query(`
+            SELECT t.*,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
+            FROM public.tracks t
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
+            WHERE t.id = $1
+            GROUP BY t.id
+        `, [id]);
+        
+        res.json(updated.rows[0]);
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
 // Удалить трек
 app.delete('/api/tracks/:id', async (req, res) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
-        const track = await pool.query('SELECT artist FROM public.tracks WHERE id = $1', [id]);
-        const result = await pool.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found' });
-        // Обновляем trackscount у артиста
-        if (track.rows.length > 0) {
-            await pool.query(
-                'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.tracks WHERE artist = $1) WHERE artist = $1',
-                [track.rows[0].artist]
-            );
+        
+        await client.query('BEGIN');
+        
+        // Удаляем связи с артистами
+        await client.query('DELETE FROM public.track_artists WHERE track_id = $1', [id]);
+        
+        // Удаляем сам трек
+        const result = await client.query('DELETE FROM public.tracks WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Track not found' });
         }
+        
+        // Обновляем trackscount у всех артистов
+        await client.query(`
+            UPDATE public.artists 
+            SET trackscount = (SELECT COUNT(*) FROM public.track_artists WHERE artist_id = artists.id)
+        `);
+        
+        await client.query('COMMIT');
         res.json({ message: 'Track deleted', track: result.rows[0] });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ===================== TRACK ARTISTS =====================
+
+// Получить всех исполнителей трека
+app.get('/api/tracks/:trackId/artists', async (req, res) => {
+    try {
+        const { trackId } = req.params;
+        const result = await pool.query(`
+            SELECT ta.*, a.artist, a.slug, a.photo_url, a.color, a.about
+            FROM public.track_artists ta
+            JOIN public.artists a ON ta.artist_id = a.id
+            WHERE ta.track_id = $1
+            ORDER BY ta.is_primary DESC
+        `, [trackId]);
+        res.json(result.rows);
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
+// Добавить исполнителя к треку
+app.post('/api/tracks/:trackId/artists', async (req, res) => {
+    try {
+        const { trackId } = req.params;
+        const { artist_id, is_primary } = req.body;
+        const result = await pool.query(
+            'INSERT INTO public.track_artists (track_id, artist_id, is_primary) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING *',
+            [trackId, artist_id, is_primary || false]
+        );
+        // Обновляем trackscount у артиста
+        await pool.query(
+            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.track_artists WHERE artist_id = $1) WHERE id = $1',
+            [artist_id]
+        );
+        res.status(201).json(result.rows[0] || { track_id: trackId, artist_id });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Удалить исполнителя из трека
+app.delete('/api/tracks/:trackId/artists/:artistId', async (req, res) => {
+    try {
+        const { trackId, artistId } = req.params;
+        const result = await pool.query(
+            'DELETE FROM public.track_artists WHERE track_id = $1 AND artist_id = $2 RETURNING *',
+            [trackId, artistId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Artist not found in track' });
+        // Обновляем trackscount у артиста
+        await pool.query(
+            'UPDATE public.artists SET trackscount = (SELECT COUNT(*) FROM public.track_artists WHERE artist_id = $1) WHERE id = $1',
+            [artistId]
+        );
+        res.json({ message: 'Artist removed from track' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Обновить список исполнителей трека
+app.put('/api/tracks/:trackId/artists', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { trackId } = req.params;
+        const { artist_ids } = req.body;
+        
+        await client.query('BEGIN');
+        
+        // Удаляем старые связи
+        await client.query('DELETE FROM public.track_artists WHERE track_id = $1', [trackId]);
+        
+        // Создаем новые связи
+        for (let i = 0; i < artist_ids.length; i++) {
+            const isPrimary = i === 0;
+            await client.query(
+                'INSERT INTO public.track_artists (track_id, artist_id, is_primary) VALUES ($1, $2, $3)',
+                [trackId, artist_ids[i], isPrimary]
+            );
+        }
+        
+        // Обновляем trackscount у всех артистов
+        await client.query(`
+            UPDATE public.artists 
+            SET trackscount = (SELECT COUNT(*) FROM public.track_artists WHERE artist_id = artists.id)
+        `);
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Track artists updated' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // ===================== USER LIBRARY TRACKS =====================
 
-// Получить библиотеку треков пользователя
+// Получить библиотеку треков пользователя (без дубликатов, с массивом исполнителей)
 app.get('/api/users/:userId/library/tracks', async (req, res) => {
     try {
         const { userId } = req.params;
         const result = await pool.query(`
-            SELECT t.*, ult.added_at, a.about AS artist_about, a.trackscount AS artist_trackscount,
-                   a.photo_url AS artist_photo_url, a.slug AS artist_slug, a.color AS artist_color
+            SELECT t.*, ult.added_at,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
             FROM public.user_library_tracks ult
             JOIN public.tracks t ON ult.track_id = t.id
-            JOIN public.artists a ON t.artist = a.artist
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
             WHERE ult.user_id = $1
+            GROUP BY t.id, ult.added_at
             ORDER BY ult.added_at DESC
         `, [userId]);
         res.json(result.rows);
@@ -426,7 +765,7 @@ app.post('/api/users/:userId/library/sync', async (req, res) => {
         await client.query('BEGIN');
 
         // Найти все треки этого пользователя
-        const tracksRes = await client.query('SELECT id, artist FROM public.tracks WHERE user_id = $1', [userId]);
+        const tracksRes = await client.query('SELECT id FROM public.tracks WHERE user_id = $1', [userId]);
         let tracksAdded = 0;
         let artistsAdded = 0;
 
@@ -438,12 +777,15 @@ app.post('/api/users/:userId/library/sync', async (req, res) => {
             );
             if (ins.rows.length > 0) tracksAdded++;
 
-            // Найти артиста и подписать пользователя
-            const artRes = await client.query('SELECT id FROM public.artists WHERE artist = $1', [track.artist]);
-            if (artRes.rows.length > 0) {
+            // Найти всех артистов трека и подписать пользователя
+            const artRes = await client.query(
+                'SELECT artist_id FROM public.track_artists WHERE track_id = $1',
+                [track.id]
+            );
+            for (const art of artRes.rows) {
                 const insArt = await client.query(
                     'INSERT INTO public.user_library_artists (user_id, artist_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
-                    [userId, artRes.rows[0].id]
+                    [userId, art.artist_id]
                 );
                 if (insArt.rows.length > 0) artistsAdded++;
             }
@@ -508,17 +850,43 @@ app.put('/api/users/:userId/playback', async (req, res) => {
     }
 });
 
-// Получить состояние воспроизведения пользователя
+// Получить состояние воспроизведения пользователя (с массивом исполнителей)
 app.get('/api/users/:userId/playback', async (req, res) => {
     try {
         const { userId } = req.params;
         const result = await pool.query(
-            `SELECT ups.*, t.title, t.artist, t.audio_url, t.cover_url, t.lyrics, t.color, t.id as track_id,
-                    a.slug AS artist_slug, a.photo_url AS artist_photo_url
+            `SELECT ups.*, t.title, t.audio_url, t.cover_url, t.lyrics, t.color, t.id as track_id,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url
              FROM public.user_playback_state ups
              JOIN public.tracks t ON ups.track_id = t.id
-             JOIN public.artists a ON t.artist = a.artist
-             WHERE ups.user_id = $1`,
+             LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+             LEFT JOIN public.artists a ON ta.artist_id = a.id
+             WHERE ups.user_id = $1
+             GROUP BY ups.user_id, t.id, ups.track_id, ups.progress_seconds, ups.updated_at`,
             [userId]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'No playback state' });

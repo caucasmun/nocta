@@ -47,10 +47,13 @@ function Search() {
 
     const foundTracks = useMemo(() => {
         if (!normalizedQuery) return [];
-        return tracks.filter(t =>
-            t.title.toLowerCase().includes(normalizedQuery) ||
-            t.artist.toLowerCase().includes(normalizedQuery)
-        );
+        return tracks.filter(t => {
+            const titleMatch = t.title.toLowerCase().includes(normalizedQuery);
+            const artistMatch = t.track_artists && Array.isArray(t.track_artists)
+                ? t.track_artists.some(ta => ta.artist.toLowerCase().includes(normalizedQuery))
+                : (t.artist || '').toLowerCase().includes(normalizedQuery);
+            return titleMatch || artistMatch;
+        });
     }, [normalizedQuery, tracks]);
 
     const foundArtists = useMemo(() => {
@@ -158,13 +161,32 @@ function Search() {
                                     </div>
                                     <div className={cn.trackInfo}>
                                         <p className={cn.trackName}>{track.title}</p>
-                                        <Link
-                                            to={`/artist/${getArtistSlug(track.artist)}`}
-                                            className={cn.trackArtist}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            {track.artist}
-                                        </Link>
+                                        <div className={cn.trackArtistsList}>
+                                            {track.track_artists && Array.isArray(track.track_artists) ? (
+                                                track.track_artists.map((ta, idx) => (
+                                                    <span key={ta.artist_id}>
+                                                        <Link
+                                                            to={`/artist/${ta.slug || getArtistSlug(ta.artist)}`}
+                                                            className={cn.trackArtist}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        >
+                                                            {ta.artist}
+                                                        </Link>
+                                                        {idx < track.track_artists.length - 1 && (
+                                                            <span className={cn.featSeparator}> feat. </span>
+                                                        )}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <Link
+                                                    to={`/artist/${getArtistSlug(track.artist)}`}
+                                                    className={cn.trackArtist}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {track.artist}
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}

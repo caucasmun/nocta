@@ -40,8 +40,7 @@ function Home() {
         }
     }, [user]);
 
-    const goToArtist = (artistName) => {
-        const slug = artistName?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
+    const goToArtist = (slug) => {
         if (slug) {
             navigate(`/artist/${slug}`);
         }
@@ -76,6 +75,8 @@ function Home() {
         );
     }
 
+    const trackArtists = (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists)) ? currentTrack.track_artists : [];
+
     return (
         <section className={cn.home}>
             <div className={`${cn['glow-container']} ${isPlaying ? cn.playing : cn.paused}`}>
@@ -107,7 +108,21 @@ function Home() {
                             <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                         </svg>
                     </div>
-                    <p className={cn['cover-artist-name']} onClick={() => goToArtist(currentTrack?.artist)} role="button" tabIndex={0}>{currentTrack?.artist}</p>
+                    <p className={cn['cover-artist-name']}>
+                        {trackArtists.map((ta, idx) => (
+                            <span key={ta.artist_id}>
+                                <span
+                                    className={cn['artist-link']}
+                                    onClick={() => goToArtist(ta.slug)}
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    {ta.artist}
+                                </span>
+                                {idx < trackArtists.length - 1 && <span className={cn['feat-separator']}> feat. </span>}
+                            </span>
+                        ))}
+                    </p>
                 </div>
             </div>
 
@@ -149,7 +164,7 @@ function Home() {
                             ) : (
                                 <>
                                     <span className={cn['track-title-paused']}>
-                                        {currentTrack?.title} — {currentTrack?.artist}
+                                        {currentTrack?.title} — {trackArtists.map(ta => ta.artist).join(', ')}
                                     </span>
                                     <span className={cn['track-time-paused']}>
                                         {formatTime(currentTime)} / {formatTime(duration)}
@@ -202,7 +217,9 @@ function Home() {
                     <div className={cn['lyrics-panel']} onClick={e => e.stopPropagation()}>
                         <div className={cn['lyrics-panel-header']}>
                             <p className={cn['lyrics-song-name']}>{currentTrack.title}</p>
-                            <p className={cn['lyrics-artist-name']}>{currentTrack.artist}</p>
+                            <p className={cn['lyrics-artist-name']}>
+                                {trackArtists.map(ta => ta.artist).join(' feat. ')}
+                            </p>
                             <button className={cn['lyrics-close']} onClick={() => setShowLyrics(false)}>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

@@ -135,3 +135,16 @@
 .trackArtist:hover {
     color: #ffffff;
 }
+
+.trackArtistsList {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+}
+
+.featSeparator {
+    color: #666;
+    font-size: 11px;
+    font-weight: 600;
+}

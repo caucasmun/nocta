@@ -1,4 +1,4 @@
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
@@ -7,11 +7,16 @@ import cn from './Artist.module.css';
 
 function Artist() {
     const { slug } = useParams();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [coverCache, setCoverCache] = useState({});
     const [artist, setArtist] = useState(null);
     const [artistTracks, setArtistTracks] = useState([]);
     const { playTrack } = useAudio();
+
+    const goToArtist = (artistSlug) => {
+        if (artistSlug) navigate(`/artist/${artistSlug}`);
+    };
 
     useEffect(() => {
         if (!user) return;
@@ -20,7 +25,6 @@ function Artist() {
         (async () => {
             const artists = await getArtists(user.id);
             if (cancelled) return;
-            // Ищем по slug (из БД) или по сгенерированному slug из имени
             const makeSlug = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
             const foundArtist = artists.find(a => a.slug === slug || makeSlug(a.artist) === slug);
             setArtist(foundArtist);
@@ -28,10 +32,14 @@ function Artist() {
             if (foundArtist) {
                 const allTracks = await getTracks(user.id);
                 if (cancelled) return;
-                const filtered = allTracks.filter(t => t.artist === foundArtist.artist);
+                const filtered = allTracks.filter(t => {
+                    if (t.track_artists && Array.isArray(t.track_artists)) {
+                        return t.track_artists.some(ta => ta.artist_id === foundArtist.id);
+                    }
+                    return t.artist === foundArtist.artist;
+                });
                 setArtistTracks(filtered);
 
-                // Resolve covers
                 filtered.forEach(track => {
                     if (track.cover_url && !coverCache[track.cover_url]) {
                         getFile(track.cover_url).then(url => {
@@ -91,13 +99,13 @@ function Artist() {
                 <div className={cn.discographySection}>
                     <h2 className={cn.sectionTitle}>Дискография</h2>
                     <div className={cn.trackList}>
-                        {artistTracks.map(track => (
+                        {artistTracks.map((track, trackIdx) => (
                             <div 
                                 key={track.id} 
                                 className={cn.trackItem}
                                 onClick={() => playTrack(track)}
                             >
-                                <div className={cn.trackNum}>{artistTracks.indexOf(track) + 1}</div>
+                                <div className={cn.trackNum}>{trackIdx + 1}</div>
                                 <div className={cn.trackArt}>
                                     {(track.cover_url && coverCache[track.cover_url]) ? (
                                         <img src={coverCache[track.cover_url]} alt={track.title} className={cn.trackCoverImg} />
@@ -108,7 +116,24 @@ function Artist() {
                                 </div>
                                 <div className={cn.trackInfo}>
                                     <p className={cn.trackName}>{track.title}</p>
-                                    <p className={cn.trackArtist}>{artist.artist}</p>
+                                    <p className={cn.trackArtist}>
+                                        {(track.track_artists && Array.isArray(track.track_artists) ? track.track_artists : []).map((ta, idx, arr) => (
+                                            <span key={ta.artist_id || idx}>
+                                                <span
+                                                    className={cn.trackArtistLink}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        goToArtist(ta.slug);
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                >
+                                                    {ta.artist}
+                                                </span>
+                                                {idx < arr.length - 1 && <span className={cn.featSeparator}> feat. </span>}
+                                            </span>
+                                        ))}
+                                    </p>
                                 </div>
                             </div>
                         ))}

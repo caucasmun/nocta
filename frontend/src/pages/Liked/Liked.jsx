@@ -81,13 +81,32 @@ function Liked() {
                                 </div>
                                 <div className={cn.trackInfo}>
                                     <p className={cn.trackName}>{track.title}</p>
-                                    <Link
-                                        to={`/artist/${getArtistSlug(track.artist)}`}
-                                        className={cn.trackArtist}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {track.artist}
-                                    </Link>
+                                    <div className={cn.trackArtistsList}>
+                                        {track.track_artists && Array.isArray(track.track_artists) ? (
+                                            track.track_artists.map((ta, idx) => (
+                                                <span key={ta.artist_id}>
+                                                    <Link
+                                                        to={`/artist/${ta.slug || getArtistSlug(ta.artist)}`}
+                                                        className={cn.trackArtist}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {ta.artist}
+                                                    </Link>
+                                                    {idx < track.track_artists.length - 1 && (
+                                                        <span className={cn.featSeparator}> feat. </span>
+                                                    )}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <Link
+                                                to={`/artist/${getArtistSlug(track.artist)}`}
+                                                className={cn.trackArtist}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                {track.artist}
+                                            </Link>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}

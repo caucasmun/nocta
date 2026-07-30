@@ -62,6 +62,7 @@ export function AudioProvider({ children }) {
                     lyrics: data.lyrics,
                     color: data.color,
                     artist_slug: data.artist_slug,
+                    track_artists: data.track_artists || [],
                 };
                 setSavedTrack(track);
                 setSavedProgress(data.progress_seconds || 0);

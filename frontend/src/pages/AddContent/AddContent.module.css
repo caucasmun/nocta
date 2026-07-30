@@ -76,6 +76,291 @@
     min-height: 80px;
 }
 
+.fieldLabel {
+    color: #b3b3b3;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+}
+
+/* ===== Artist dropdown ===== */
+.artistField {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.artistInputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 14px;
+    color: #666;
+    pointer-events: none;
+}
+
+.artistInput {
+    width: 100%;
+    padding: 14px 42px 14px 44px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    background-color: #242424;
+    color: #ffffff;
+    font-size: 15px;
+    font-family: 'Montserrat', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.artistInput:focus {
+    border-color: #1db954;
+}
+
+.artistInput::placeholder {
+    color: #666;
+}
+
+.clearBtn {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.clearBtn:hover {
+    color: #ffffff;
+}
+
+.dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    z-index: 100;
+    margin-top: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+    animation: dropdownFade 0.15s ease;
+}
+
+@keyframes dropdownFade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownList {
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #444 #1a1a1a;
+}
+
+.dropdownList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdownList::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.dropdownList::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+.dropdownItem {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #222;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background-color 0.15s;
+}
+
+.dropdownItem:last-child {
+    border-bottom: none;
+}
+
+.dropdownItem:hover {
+    background-color: #2a2a2a;
+}
+
+.dropdownAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.dropdownAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dropdownInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.dropdownName {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dropdownSub {
+    font-size: 12px;
+    color: #888;
+}
+
+.checkIcon {
+    flex-shrink: 0;
+}
+
+.dropdownCreate {
+    padding: 12px 14px;
+    cursor: pointer;
+    color: #1db954;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid #333;
+    font-size: 14px;
+    transition: background-color 0.15s;
+}
+
+.dropdownCreate:hover {
+    background-color: #2a2a2a;
+}
+
+.createAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(29, 185, 84, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #1db954;
+}
+
+.dropdownCreate strong {
+    color: #ffffff;
+}
+
+.dropdownEmpty {
+    padding: 16px 14px;
+    color: #666;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* ===== Selected artists tags ===== */
+.selectedArtists {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.artistTag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(29, 185, 84, 0.1);
+    border: 1px solid rgba(29, 185, 84, 0.3);
+    border-radius: 24px;
+    padding: 4px 8px 4px 4px;
+    font-size: 13px;
+    color: #fff;
+    animation: tagPop 0.2s ease;
+}
+
+@keyframes tagPop {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.tagAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.tagAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.tagName {
+    font-weight: 600;
+}
+
+.tagFeat {
+    color: #888;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: -4px;
+}
+
+.tagRemove {
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+    border-radius: 50%;
+}
+
+.tagRemove:hover {
+    color: #ff334b;
+    background: rgba(255, 51, 75, 0.1);
+}
+
 .colorRow {
     display: flex;
     align-items: center;
@@ -112,6 +397,11 @@
 
 .submit:hover {
     background-color: #1ed760;
+}
+
+.submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .success {
@@ -219,39 +509,173 @@
     object-fit: cover;
 }
 
-.imageUpload {
+.lyricsField {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.imageLabel {
-    color: #b3b3b3;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.imageUpload .fileInput {
-    display: block;
+.progressBar {
+    position: relative;
     width: 100%;
-    padding: 8px;
+    height: 32px;
     background-color: #242424;
+    border-radius: 16px;
+    overflow: hidden;
     border: 1px solid #333;
-    border-radius: 8px;
-    color: #ffffff;
-    font-size: 14px;
-    cursor: pointer;
 }
 
-.imageUpload .fileInput::file-selector-button {
-    padding: 6px 12px;
-    background-color: #1db954;
-    color: #000000;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-family: 'Montserrat', sans-serif;
+.progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, #1db954, #1ed760);
+    transition: width 0.3s ease;
+    border-radius: 16px;
+}
+
+.progressText {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffffff;
     font-size: 13px;
     font-weight: 600;
-    margin-right: 12px;
+    z-index: 1;
+}
+
+/* ===== Mobile responsive ===== */
+@media (max-width: 768px) {
+    .add {
+        padding: 20px 16px;
+    }
+
+    .title {
+        font-size: 26px;
+        margin-bottom: 20px;
+    }
+
+    .tabs {
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        padding: 8px 18px;
+        font-size: 13px;
+    }
+
+    .form {
+        max-width: 100%;
+        gap: 14px;
+    }
+
+    .input, .textarea, .artistInput {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .artistInput {
+        padding-left: 40px;
+        padding-right: 38px;
+    }
+
+    .searchIcon {
+        left: 12px;
+        width: 16px;
+        height: 16px;
+    }
+
+    .dropdown {
+        margin-top: 4px;
+        border-radius: 10px;
+    }
+
+    .dropdownList {
+        max-height: 200px;
+    }
+
+    .dropdownItem {
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .dropdownAvatar {
+        width: 32px;
+        height: 32px;
+        font-size: 13px;
+    }
+
+    .dropdownName {
+        font-size: 13px;
+    }
+
+    .dropdownSub {
+        font-size: 11px;
+    }
+
+    .dropdownCreate {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .createAvatar {
+        width: 32px;
+        height: 32px;
+    }
+
+    .selectedArtists {
+        gap: 6px;
+    }
+
+    .artistTag {
+        padding: 3px 6px 3px 3px;
+        font-size: 12px;
+    }
+
+    .tagAvatar {
+        width: 24px;
+        height: 24px;
+        font-size: 11px;
+    }
+
+    .tagName {
+        font-size: 12px;
+    }
+
+    .fileBtn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+
+    .submit {
+        padding: 12px;
+        font-size: 14px;
+    }
+
+    .coverPreview {
+        width: 100px;
+        height: 100px;
+    }
+}
+
+@media (max-width: 480px) {
+    .add {
+        padding: 16px 12px;
+    }
+
+    .title {
+        font-size: 22px;
+    }
+
+    .tabs {
+        gap: 6px;
+    }
+
+    .tab {
+        padding: 7px 14px;
+        font-size: 12px;
+    }
+
+    .dropdownList {
+        max-height: 160px;
+    }
 }

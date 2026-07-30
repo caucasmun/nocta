@@ -10,13 +10,26 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         (async () => {
-            await wakeBackend();
-            const session = getSession();
-            if (session) {
-                setUser(session);
-                syncUserLibrary(session.id);
+            try {
+                await wakeBackend();
+            } catch (err) {
+                console.error('wakeBackend error:', err);
             }
-            setLoading(false);
+            try {
+                const session = getSession();
+                if (session) {
+                    setUser(session);
+                    try {
+                        await syncUserLibrary(session.id);
+                    } catch (err) {
+                        console.error('syncUserLibrary error:', err);
+                    }
+                }
+            } catch (err) {
+                console.error('Auth init error:', err);
+            } finally {
+                setLoading(false);
+            }
         })();
     }, []);
 

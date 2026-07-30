@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { uploadAudio, uploadImage } from '../../data/api';
+import { uploadAudio, uploadImage, API_ORIGIN } from '../../data/api';
 import { addTrack, addArtist, getArtists } from '../../data/db';
 import cn from './AddContent.module.css';
 
@@ -12,7 +12,8 @@ function AddContent() {
     const navigate = useNavigate();
     const [mode, setMode] = useState('track');
     const [title, setTitle] = useState('');
-    const [artist, setArtist] = useState('');
+    const [selectedArtists, setSelectedArtists] = useState([]);
+    const [artistInput, setArtistInput] = useState('');
     const [color, setColor] = useState('#1db954');
     const [artistName, setArtistName] = useState('');
     const [artistBio, setArtistBio] = useState('');
@@ -65,16 +66,39 @@ function AddContent() {
         );
     }
 
+    // Resolve artist photo URL
+    const resolvePhoto = (url) => {
+        if (!url) return '';
+        if (url.startsWith('http') || url.startsWith('data:')) return url;
+        return `${API_ORIGIN}${url}`;
+    };
+
     // Filter artists for dropdown
-    const filteredArtists = artist
-        ? existingArtists.filter(a => a.artist.toLowerCase().includes(artist.toLowerCase()))
+    const filteredArtists = artistInput
+        ? existingArtists.filter(a => a.artist.toLowerCase().includes(artistInput.toLowerCase()))
         : existingArtists;
 
-    const isExistingArtist = existingArtists.some(a => a.artist.toLowerCase() === artist.toLowerCase().trim());
+    const isExistingArtist = existingArtists.some(a => a.artist.toLowerCase() === artistInput.toLowerCase().trim());
 
-    const handleArtistSelect = (name) => {
-        setArtist(name);
+    const handleArtistSelect = (artistData) => {
+        if (!selectedArtists.some(a => a.id === artistData.id)) {
+            setSelectedArtists([...selectedArtists, artistData]);
+        }
+        setArtistInput('');
         setShowArtistDropdown(false);
+    };
+
+    const handleAddCustomArtist = () => {
+        const trimmed = artistInput.trim();
+        if (!trimmed) return;
+        if (selectedArtists.some(a => a.artist.toLowerCase() === trimmed.toLowerCase())) return;
+        setSelectedArtists([...selectedArtists, { id: null, artist: trimmed, is_custom: true }]);
+        setArtistInput('');
+        setShowArtistDropdown(false);
+    };
+
+    const handleRemoveArtist = (artistId) => {
+        setSelectedArtists(selectedArtists.filter(a => (a.id || a.artist) !== artistId));
     };
 
     const handleFileChange = (e) => {
@@ -130,8 +154,8 @@ function AddContent() {
 
     const handleAddTrack = async (e) => {
         e.preventDefault();
-        if (!title.trim() || !artist.trim()) {
-            setError('Заполните название и исполнителя');
+        if (!title.trim() || selectedArtists.length === 0) {
+            setError('Заполните название и выберите хотя бы одного исполнителя');
             return;
         }
         if (!audioFile) {
@@ -156,22 +180,45 @@ function AddContent() {
             }
             setProgress(80);
 
+            // Сначала создаем/находим всех исполнителей
+            const artistIds = [];
+            for (const selected of selectedArtists) {
+                if (selected.id) {
+                    artistIds.push(selected.id);
+                } else {
+                    // Создаем нового исполнителя
+                    let photoUrl = '';
+                    if (selected.photo_file) {
+                        const photoData = await uploadImage(selected.photo_file);
+                        photoUrl = photoData.url;
+                    }
+                    const newArtist = await addArtist(user.id, {
+                        name: selected.artist,
+                        bio: selected.bio || '',
+                        photo_url: photoUrl,
+                        color: selected.color || '#ff6b00',
+                    });
+                    artistIds.push(newArtist.id);
+                }
+            }
+
+            // Создаем трек с несколькими исполнителями
             await addTrack(user.id, {
                 title: title.trim(),
-                artist: artist.trim(),
+                artists: artistIds,
                 lyrics: lyrics.trim(),
                 audio_url: audioUrl,
                 cover_url: coverUrl,
                 color: color,
             });
 
-            // Refresh artists list after adding track (new artist may have been created)
+            // Refresh artists list after adding track
             getArtists(user.id).then(setExistingArtists);
 
             reloadTracks();
 
             setTitle('');
-            setArtist('');
+            setSelectedArtists([]);
             setColor('#1db954');
             setAudioFile(null);
             setCoverFile(null);
@@ -254,109 +301,128 @@ function AddContent() {
                     />
 
                     {/* Artist field with dropdown */}
-                    <div ref={artistDropdownRef} style={{ position: 'relative' }}>
-                        <input
-                            type="text" className={cn.input}
-                            placeholder="Исполнитель *"
-                            value={artist}
-                            onChange={(e) => {
-                                setArtist(e.target.value);
-                                setShowArtistDropdown(true);
-                            }}
-                            onFocus={() => setShowArtistDropdown(true)}
-                            required
-                            autoComplete="off"
-                        />
+                    <div ref={artistDropdownRef} className={cn.artistField}>
+                        <label className={cn.fieldLabel}>Исполнители *</label>
+                        <div className={cn.artistInputWrapper}>
+                            <svg className={cn.searchIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input
+                                type="text"
+                                className={cn.artistInput}
+                                placeholder="Поиск или создание исполнителя..."
+                                value={artistInput}
+                                onChange={(e) => {
+                                    setArtistInput(e.target.value);
+                                    setShowArtistDropdown(true);
+                                }}
+                                onFocus={() => setShowArtistDropdown(true)}
+                                autoComplete="off"
+                            />
+                            {artistInput && (
+                                <button
+                                    type="button"
+                                    className={cn.clearBtn}
+                                    onClick={() => { setArtistInput(''); setShowArtistDropdown(false); }}
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+
                         {showArtistDropdown && (
-                            <div style={{
-                                position: 'absolute',
-                                top: '100%',
-                                left: 0,
-                                right: 0,
-                                background: '#1a1a1a',
-                                border: '1px solid #333',
-                                borderRadius: '8px',
-                                zIndex: 100,
-                                marginTop: '4px',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                            }}>
+                            <div className={cn.dropdown}>
                                 {filteredArtists.length > 0 && (
-                                    <div style={{
-                                        maxHeight: '180px',
-                                        overflowY: 'auto',
-                                        scrollbarWidth: 'thin',
-                                        scrollbarColor: '#444 #1a1a1a',
-                                    }}>
-                                        {filteredArtists.map(a => (
-                                            <div
-                                                key={a.id}
-                                                onClick={() => handleArtistSelect(a.artist)}
-                                                style={{
-                                                    padding: '10px 14px',
-                                                    cursor: 'pointer',
-                                                    borderBottom: '1px solid #222',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '10px',
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#2a2a2a'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                <div style={{
-                                                    width: '32px',
-                                                    height: '32px',
-                                                    borderRadius: '50%',
-                                                    background: a.color || '#333',
-                                                    flexShrink: 0,
-                                                    overflow: 'hidden',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                }}>
-                                                    {a.photo_url ? (
-                                                        <img src={a.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    ) : (
-                                                        <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>
-                                                            {a.artist.charAt(0).toUpperCase()}
-                                                        </span>
+                                    <div className={cn.dropdownList}>
+                                        {filteredArtists.map(a => {
+                                            const photoUrl = resolvePhoto(a.photo_url);
+                                            return (
+                                                <div
+                                                    key={a.id}
+                                                    className={cn.dropdownItem}
+                                                    onClick={() => handleArtistSelect(a)}
+                                                >
+                                                    <div
+                                                        className={cn.dropdownAvatar}
+                                                        style={{ background: a.color || '#333' }}
+                                                    >
+                                                        {photoUrl ? (
+                                                            <img src={photoUrl} alt={a.artist} />
+                                                        ) : (
+                                                            <span>{a.artist.charAt(0).toUpperCase()}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className={cn.dropdownInfo}>
+                                                        <span className={cn.dropdownName}>{a.artist}</span>
+                                                        <span className={cn.dropdownSub}>{a.trackscount || 0} треков</span>
+                                                    </div>
+                                                    {selectedArtists.some(sa => sa.id === a.id) && (
+                                                        <svg className={cn.checkIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1db954" strokeWidth="2">
+                                                            <polyline points="20 6 9 17 4 12"/>
+                                                        </svg>
                                                     )}
                                                 </div>
-                                                <span>{a.artist}</span>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 )}
-                                {artist.trim() && !isExistingArtist && (
+                                {artistInput.trim() && !isExistingArtist && (
                                     <div
-                                        onClick={() => handleArtistSelect(artist.trim())}
-                                        style={{
-                                            padding: '10px 14px',
-                                            cursor: 'pointer',
-                                            color: '#1db954',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            borderTop: filteredArtists.length > 0 ? '1px solid #333' : 'none',
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#2a2a2a'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                        className={cn.dropdownCreate}
+                                        onClick={handleAddCustomArtist}
                                     >
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M11.5 2a1 1 0 0 1 1 1v7.5H20a1 1 0 1 1 0 2h-7.5V20a1 1 0 1 1-2 0v-7.5H3a1 1 0 1 1 0-2h7.5V3a1 1 0 0 1 1-1z"/>
-                                        </svg>
-                                        <span>Создать нового: "{artist.trim()}"</span>
+                                        <div className={cn.createAvatar}>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M11.5 2a1 1 0 0 1 1 1v7.5H20a1 1 0 1 1 0 2h-7.5V20a1 1 0 1 1-2 0v-7.5H3a1 1 0 1 1 0-2h7.5V3a1 1 0 0 1 1-1z"/>
+                                            </svg>
+                                        </div>
+                                        <span>Создать нового: <strong>"{artistInput.trim()}"</strong></span>
                                     </div>
                                 )}
-                                {filteredArtists.length === 0 && !artist.trim() && (
-                                    <div style={{ padding: '10px 14px', color: '#666' }}>
+                                {filteredArtists.length === 0 && !artistInput.trim() && (
+                                    <div className={cn.dropdownEmpty}>
                                         Нет существующих исполнителей. Начните вводить имя.
                                     </div>
                                 )}
                             </div>
                         )}
                     </div>
+
+                    {/* Selected artists tags */}
+                    {selectedArtists.length > 0 && (
+                        <div className={cn.selectedArtists}>
+                            {selectedArtists.map((a, idx) => {
+                                const photoUrl = a.photo_url ? resolvePhoto(a.photo_url) : '';
+                                return (
+                                    <div key={a.id || a.artist} className={cn.artistTag}>
+                                        <div
+                                            className={cn.tagAvatar}
+                                            style={{ background: a.color || '#333' }}
+                                        >
+                                            {photoUrl ? (
+                                                <img src={photoUrl} alt={a.artist} />
+                                            ) : (
+                                                <span>{a.artist.charAt(0).toUpperCase()}</span>
+                                            )}
+                                        </div>
+                                        <span className={cn.tagName}>{a.artist}</span>
+                                        {idx > 0 && <span className={cn.tagFeat}>feat.</span>}
+                                        <button
+                                            type="button"
+                                            className={cn.tagRemove}
+                                            onClick={() => handleRemoveArtist(a.id || a.artist)}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     <div className={cn.fileUpload}>
                         <label className={cn.fileLabel}>Аудиофайл (mp3) *</label>

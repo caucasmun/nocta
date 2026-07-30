@@ -19,13 +19,19 @@ CREATE TABLE IF NOT EXISTS public.artists (
 CREATE TABLE IF NOT EXISTS public.tracks (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    artist VARCHAR(255) NOT NULL REFERENCES public.artists(artist) ON DELETE CASCADE,
     lyrics VARCHAR(10000),
     isliked BOOLEAN DEFAULT false,
     user_id INT REFERENCES public.users(id) ON DELETE SET NULL,
     audio_url VARCHAR(500),
     cover_url VARCHAR(500),
     color VARCHAR(20) DEFAULT '#ff6b00'
+);
+
+CREATE TABLE IF NOT EXISTS public.track_artists (
+    track_id INT NOT NULL REFERENCES public.tracks(id) ON DELETE CASCADE,
+    artist_id INT NOT NULL REFERENCES public.artists(id) ON DELETE CASCADE,
+    is_primary BOOLEAN DEFAULT true,
+    PRIMARY KEY (track_id, artist_id)
 );
 
 CREATE TABLE IF NOT EXISTS public.user_library_tracks (
@@ -52,8 +58,9 @@ CREATE TABLE IF NOT EXISTS public.user_playback_state (
 );
 
 -- Индексы для ускорения запросов
-CREATE INDEX IF NOT EXISTS idx_tracks_artist ON public.tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_user_id ON public.tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_tracks_user ON public.user_library_tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_artists_user ON public.user_library_artists(user_id);
 CREATE INDEX IF NOT EXISTS idx_playback_user ON public.user_playback_state(user_id);
+CREATE INDEX IF NOT EXISTS idx_track_artists_track ON public.track_artists(track_id);
+CREATE INDEX IF NOT EXISTS idx_track_artists_artist ON public.track_artists(artist_id);

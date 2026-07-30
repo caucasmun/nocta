@@ -185,6 +185,31 @@
     font-size: 13px;
     color: #b3b3b3;
     margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+}
+
+.trackArtistLink {
+    color: #e0e0e0;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.2s, text-decoration 0.2s;
+    white-space: nowrap;
+}
+
+.trackArtistLink:hover {
+    color: #1db954;
+    text-decoration: underline;
+}
+
+.featSeparator {
+    color: #888;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 2px;
 }
 
 .noTracks {
@@ -216,4 +241,43 @@
 
 .backLink:hover {
     color: #ffffff;
+}
+
+@media (max-width: 768px) {
+    .hero {
+        padding: 30px 16px 40px;
+    }
+    .heroContent {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+    }
+    .heroPhoto {
+        width: 140px;
+        height: 140px;
+    }
+    .heroName {
+        font-size: 32px;
+    }
+    .body {
+        padding: 20px 16px;
+    }
+    .trackItem {
+        gap: 10px;
+        padding: 6px 8px;
+    }
+    .trackArt {
+        width: 36px;
+        height: 36px;
+    }
+    .trackName {
+        font-size: 14px;
+    }
+    .trackArtist {
+        font-size: 12px;
+    }
+    .trackArtistLink {
+        font-size: 12px;
+    }
 }

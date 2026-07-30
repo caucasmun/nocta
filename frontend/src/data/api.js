@@ -154,6 +154,32 @@ export async function deleteTrack(id) {
     });
 }
 
+// ==================== TRACK ARTISTS ====================
+
+export async function fetchTrackArtists(trackId) {
+    return request(`/tracks/${trackId}/artists`);
+}
+
+export async function addTrackArtist(trackId, artistId, isPrimary = false) {
+    return request(`/tracks/${trackId}/artists`, {
+        method: 'POST',
+        body: JSON.stringify({ artist_id: artistId, is_primary: isPrimary }),
+    });
+}
+
+export async function removeTrackArtist(trackId, artistId) {
+    return request(`/tracks/${trackId}/artists/${artistId}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function updateTrackArtists(trackId, artistIds) {
+    return request(`/tracks/${trackId}/artists`, {
+        method: 'PUT',
+        body: JSON.stringify({ artist_ids: artistIds }),
+    });
+}
+
 // ==================== USER LIBRARY TRACKS ====================
 
 export async function fetchUserLibraryTracks(userId) {
