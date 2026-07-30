@@ -218,6 +218,19 @@ export async function uploadAudio(file) {
     }
 }
 
+// ==================== PLAYBACK STATE ====================
+
+export async function savePlaybackState(userId, trackId, progressSeconds) {
+    return request(`/users/${userId}/playback`, {
+        method: 'PUT',
+        body: JSON.stringify({ track_id: trackId, progress_seconds: progressSeconds }),
+    });
+}
+
+export async function fetchPlaybackState(userId) {
+    return request(`/users/${userId}/playback`);
+}
+
 export async function uploadImage(file) {
     const url = `${API_BASE}/upload/image`;
     const formData = new FormData();

@@ -118,12 +118,21 @@ body::-webkit-scrollbar {
     min-height: 100vh;
   }
 
+  .layout-right.home-page {
+    min-height: auto;
+  }
+
   .main-content {
     flex: 1;
     background-color: #121212;
     overflow-y: auto;
     padding-bottom: 72px;
     min-height: 0;
+  }
+
+  .main-content.home-page {
+    flex: none;
+    padding-bottom: 0;
   }
 
   /* Mobile responsiveness */
@@ -137,9 +146,18 @@ body::-webkit-scrollbar {
       margin-left: 0;
     }
 
+    .layout-right.home-page {
+      min-height: auto;
+    }
+
     .main-content {
       padding-bottom: 120px;
       padding-left: 0;
+    }
+
+    .main-content.home-page {
+      flex: none;
+      padding-bottom: 0;
     }
   }
 

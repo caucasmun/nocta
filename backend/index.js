@@ -486,6 +486,49 @@ app.post('/api/upload/image', upload.single('cover'), async (req, res) => {
     }
 });
 
+// ===================== PLAYBACK STATE =====================
+
+// Сохранить состояние воспроизведения
+app.put('/api/users/:userId/playback', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { track_id, progress_seconds } = req.body;
+        const result = await pool.query(
+            `INSERT INTO public.user_playback_state (user_id, track_id, progress_seconds, updated_at)
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+             ON CONFLICT (user_id)
+             DO UPDATE SET track_id = EXCLUDED.track_id, progress_seconds = EXCLUDED.progress_seconds, updated_at = CURRENT_TIMESTAMP
+             RETURNING *`,
+            [userId, track_id, progress_seconds || 0]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Получить состояние воспроизведения пользователя
+app.get('/api/users/:userId/playback', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await pool.query(
+            `SELECT ups.*, t.title, t.artist, t.audio_url, t.cover_url, t.lyrics, t.color, t.id as track_id,
+                    a.slug AS artist_slug, a.photo_url AS artist_photo_url
+             FROM public.user_playback_state ups
+             JOIN public.tracks t ON ups.track_id = t.id
+             JOIN public.artists a ON t.artist = a.artist
+             WHERE ups.user_id = $1`,
+            [userId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'No playback state' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===================== ИНИЦИАЛИЗАЦИЯ БД =====================
 
 async function initDB() {

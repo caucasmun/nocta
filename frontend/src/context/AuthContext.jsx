@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loginUser, registerUser, saveSession, getSession, clearSession, syncUserLibrary } from '../data/db';
-import { wakeBackend } from '../data/api';
+import { wakeBackend, savePlaybackState } from '../data/api';
 
 const AuthContext = createContext(null);
 
@@ -40,7 +40,17 @@ export function AuthProvider({ children }) {
         return result;
     }, []);
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        // Save playback state before logout
+        const session = getSession();
+        if (session) {
+            // Get current audio state from AudioContext via a temporary bridge
+            const audioState = window.__audioState || {};
+            const { currentTrack, currentTime } = audioState;
+            if (currentTrack && currentTime) {
+                await savePlaybackState(session.id, currentTrack.id, currentTime).catch(() => {});
+            }
+        }
         setUser(null);
         clearSession();
     }, []);

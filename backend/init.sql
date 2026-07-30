@@ -42,8 +42,18 @@ CREATE TABLE IF NOT EXISTS public.user_library_artists (
     PRIMARY KEY (user_id, artist_id)
 );
 
+-- Таблица для сохранения состояния воспроизведения
+CREATE TABLE IF NOT EXISTS public.user_playback_state (
+    user_id INT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    track_id INT NOT NULL REFERENCES public.tracks(id) ON DELETE CASCADE,
+    progress_seconds DOUBLE PRECISION DEFAULT 0,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id)
+);
+
 -- Индексы для ускорения запросов
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON public.tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_user_id ON public.tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_tracks_user ON public.user_library_tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_artists_user ON public.user_library_artists(user_id);
+CREATE INDEX IF NOT EXISTS idx_playback_user ON public.user_playback_state(user_id);

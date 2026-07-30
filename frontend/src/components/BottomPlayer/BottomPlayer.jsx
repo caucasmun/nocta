@@ -61,6 +61,11 @@ function BottomPlayer() {
         }
     }, [currentTrack]);
 
+    // Hide BottomPlayer on desktop home page (Home has its own player)
+    if (window.innerWidth >= 769 && (location.pathname === '/' || location.pathname === '')) {
+        return null;
+    }
+
     if (!hasStarted || !currentTrack) {
         return null;
     }

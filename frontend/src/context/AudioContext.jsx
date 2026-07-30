@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { getTracks, getFile } from '../data/db';
 import { toggleLike as toggleLikeDB, getLikedTracks } from '../data/db';
+import { savePlaybackState, fetchPlaybackState } from '../data/api';
 
 function getRandomTrack(tracksList, excludeId = null) {
     const available = excludeId
@@ -29,6 +30,8 @@ export function AudioProvider({ children }) {
     const [tracksList, setTracksList] = useState([]);
     const [userId, setUserId] = useState(null);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [savedTrack, setSavedTrack] = useState(null);
+    const [savedProgress, setSavedProgress] = useState(0);
 
     const audioRef = useRef(null);
     const fadeIntervalRef = useRef(null);
@@ -38,6 +41,34 @@ export function AudioProvider({ children }) {
         const tracks = await getTracks(uid);
         setTracksList(tracks);
     }, []);
+
+    // Load saved playback state when user changes
+    useEffect(() => {
+        if (!user) {
+            setSavedTrack(null);
+            setSavedProgress(0);
+            return;
+        }
+        let cancelled = false;
+        fetchPlaybackState(user.id)
+            .then(data => {
+                if (cancelled || !data || !data.track_id) return;
+                const track = {
+                    id: data.track_id,
+                    title: data.title,
+                    artist: data.artist,
+                    audio_url: data.audio_url,
+                    cover_url: data.cover_url,
+                    lyrics: data.lyrics,
+                    color: data.color,
+                    artist_slug: data.artist_slug,
+                };
+                setSavedTrack(track);
+                setSavedProgress(data.progress_seconds || 0);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [user]);
 
     useEffect(() => {
         if (user) {
@@ -71,6 +102,11 @@ export function AudioProvider({ children }) {
         setIsInitialized(true);
     }, [currentTrack, isInitialized, user, loadTracks]);
 
+    // Expose current audio state globally for logout save
+    useEffect(() => {
+        window.__audioState = { currentTrack, currentTime };
+    }, [currentTrack, currentTime]);
+
     const playTrack = useCallback(async (track) => {
         if (!user) { navigate('/auth'); return; }
         if (!audioRef.current) audioRef.current = new Audio();
@@ -85,15 +121,19 @@ export function AudioProvider({ children }) {
             if (data) src = data;
         }
 
-        if (currentTrack?.id !== track.id) {
+        const isNewTrack = currentTrack?.id !== track.id;
+        const isResumingSaved = isNewTrack && savedTrack?.id === track.id;
+        if (isNewTrack) {
             audio.pause();
             audio.src = src;
         }
 
         const onLoaded = () => {
             setDuration(audio.duration || 0);
-            setCurrentTime(0);
-            setProgress(0);
+            // If this is the saved track, seek to saved progress
+            const seekTime = isResumingSaved ? savedProgress : 0;
+            setCurrentTime(seekTime);
+            setProgress(seekTime > 0 ? (seekTime / (audio.duration || 1)) * 100 : 0);
             setCurrentTrack(track);
 
             const session = localStorage.getItem('nocta_session');
@@ -106,15 +146,23 @@ export function AudioProvider({ children }) {
             } else { setIsLiked(false); }
 
             audio.volume = isMuted ? 0 : volume;
+            if (seekTime > 0) audio.currentTime = seekTime;
             audio.play().then(() => { setIsPlaying(true); setHasStarted(true); })
                 .catch(err => console.log("Ошибка воспроизведения:", err));
             audio.removeEventListener('loadedmetadata', onLoaded);
+
+            // Clear saved state after user actually starts playing the saved track
+            if (isResumingSaved) {
+                setSavedTrack(null);
+                setSavedProgress(0);
+                savePlaybackState(user.id, track.id, 0).catch(() => {});
+            }
         };
 
         audio.addEventListener('loadedmetadata', onLoaded);
-        if (currentTrack?.id !== track.id) audio.load();
+        if (isNewTrack) audio.load();
         else if (audio.readyState >= 2) onLoaded();
-    }, [isMuted, volume, currentTrack, user, navigate]);
+    }, [isMuted, volume, currentTrack, user, navigate, savedTrack, savedProgress]);
 
     useEffect(() => {
         if (!audioRef.current) return;
@@ -144,9 +192,16 @@ export function AudioProvider({ children }) {
     const handleFirstPlay = useCallback(() => {
         if (!user) { navigate('/auth'); return; }
         if (tracksList.length === 0) return;
-        const first = getRandomTrack(tracksList);
-        if (first) playTrack(first);
-    }, [playTrack, tracksList, user, navigate]);
+        // If we have a saved track, resume it; otherwise play random
+        if (savedTrack) {
+            const trackInList = tracksList.find(t => t.id === savedTrack.id);
+            if (trackInList) playTrack(trackInList);
+            else playTrack(savedTrack);
+        } else {
+            const first = getRandomTrack(tracksList);
+            if (first) playTrack(first);
+        }
+    }, [playTrack, tracksList, user, navigate, savedTrack]);
 
     const togglePlay = useCallback(() => {
         if (!audioRef.current || !currentTrack) return;
