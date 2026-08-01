@@ -193,11 +193,11 @@
 .deleteBtn {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.25);
     cursor: pointer;
-    padding: 8px;
-    border-radius: 50%;
-    transition: all 0.2s;
+    padding: 6px;
+    border-radius: 6px;
+    transition: color 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -205,8 +205,7 @@
 }
 
 .deleteBtn:hover {
-    color: #ff334b;
-    background-color: rgba(255, 51, 75, 0.1);
+    color: #ff5555;
 }
 
 /* Artist list */
