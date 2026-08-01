@@ -244,6 +244,53 @@ export async function uploadAudio(file) {
     }
 }
 
+// ==================== PLAYLISTS ====================
+
+export async function fetchPlaylists(userId) {
+    return request(`/users/${userId}/playlists`);
+}
+
+export async function fetchPlaylist(id) {
+    return request(`/playlists/${id}`);
+}
+
+export async function createPlaylist(userId, data) {
+    return request(`/users/${userId}/playlists`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function updatePlaylist(id, data) {
+    return request(`/playlists/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    });
+}
+
+export async function deletePlaylist(id) {
+    return request(`/playlists/${id}`, {
+        method: 'DELETE',
+    });
+}
+
+export async function fetchPlaylistTracks(id) {
+    return request(`/playlists/${id}/tracks`);
+}
+
+export async function addTrackToPlaylist(playlistId, trackId) {
+    return request(`/playlists/${playlistId}/tracks`, {
+        method: 'POST',
+        body: JSON.stringify({ track_id: trackId }),
+    });
+}
+
+export async function removeTrackFromPlaylist(playlistId, trackId) {
+    return request(`/playlists/${playlistId}/tracks/${trackId}`, {
+        method: 'DELETE',
+    });
+}
+
 // ==================== PLAYBACK STATE ====================
 
 export async function savePlaybackState(userId, trackId, progressSeconds) {

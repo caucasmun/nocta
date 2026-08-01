@@ -8,7 +8,6 @@ function Settings() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [username, setUsername] = useState('');
-    const [bio, setBio] = useState('');
 
     useEffect(() => {
         if (!user) {
@@ -19,7 +18,6 @@ function Settings() {
         const session = getSession();
         if (session) {
             setUsername(session.username || '');
-            setBio(session.bio || '');
         }
     }, [user, navigate]);
 
@@ -53,11 +51,6 @@ function Settings() {
                     <div className={cn.field}>
                         <label className={cn.label}>Имя пользователя</label>
                         <p className={cn.value}>{username}</p>
-                    </div>
-
-                    <div className={cn.field}>
-                        <label className={cn.label}>О себе</label>
-                        <p className={cn.value}>{bio || '—'}</p>
                     </div>
 
                     <div className={cn.field}>

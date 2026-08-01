@@ -57,6 +57,26 @@ CREATE TABLE IF NOT EXISTS public.user_playback_state (
     PRIMARY KEY (user_id)
 );
 
+-- Таблица плейлистов
+CREATE TABLE IF NOT EXISTS public.playlists (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(1000),
+    cover_url VARCHAR(500),
+    color VARCHAR(20) DEFAULT '#1db954',
+    user_id INT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Таблица связей плейлистов и треков
+CREATE TABLE IF NOT EXISTS public.playlist_tracks (
+    playlist_id INT NOT NULL REFERENCES public.playlists(id) ON DELETE CASCADE,
+    track_id INT NOT NULL REFERENCES public.tracks(id) ON DELETE CASCADE,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    position INT DEFAULT 0,
+    PRIMARY KEY (playlist_id, track_id)
+);
+
 -- Индексы для ускорения запросов
 CREATE INDEX IF NOT EXISTS idx_tracks_user_id ON public.tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_tracks_user ON public.user_library_tracks(user_id);
@@ -64,3 +84,5 @@ CREATE INDEX IF NOT EXISTS idx_library_artists_user ON public.user_library_artis
 CREATE INDEX IF NOT EXISTS idx_playback_user ON public.user_playback_state(user_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_track ON public.track_artists(track_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_artist ON public.track_artists(artist_id);
+CREATE INDEX IF NOT EXISTS idx_playlists_user ON public.playlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON public.playlist_tracks(playlist_id);

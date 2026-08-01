@@ -802,6 +802,170 @@ app.post('/api/users/:userId/library/sync', async (req, res) => {
     }
 });
 
+// ===================== PLAYLISTS =====================
+
+// Получить все плейлисты пользователя
+app.get('/api/users/:userId/playlists', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await pool.query(`
+            SELECT p.*,
+                   (SELECT COUNT(*)::int FROM public.playlist_tracks pt WHERE pt.playlist_id = p.id) AS track_count
+            FROM public.playlists p
+            WHERE p.user_id = $1
+            ORDER BY p.created_at DESC
+        `, [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Получить плейлист по ID
+app.get('/api/playlists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM public.playlists WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Playlist not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Создать плейлист
+app.post('/api/users/:userId/playlists', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { name, description, cover_url, color } = req.body;
+        const result = await pool.query(
+            `INSERT INTO public.playlists (name, description, cover_url, color, user_id)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [name, description || '', cover_url || '', color || '#1db954', userId]
+        );
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Обновить плейлист
+app.put('/api/playlists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, cover_url, color } = req.body;
+        const result = await pool.query(
+            `UPDATE public.playlists SET
+                name = COALESCE($1, name),
+                description = COALESCE($2, description),
+                cover_url = COALESCE($3, cover_url),
+                color = COALESCE($4, color)
+             WHERE id = $5 RETURNING *`,
+            [name, description, cover_url, color, id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Playlist not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Удалить плейлист
+app.delete('/api/playlists/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('DELETE FROM public.playlists WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Playlist not found' });
+        res.json({ message: 'Playlist deleted' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Получить треки плейлиста
+app.get('/api/playlists/:id/tracks', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(`
+            SELECT t.*, pt.position, pt.added_at,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug
+            FROM public.playlist_tracks pt
+            JOIN public.tracks t ON pt.track_id = t.id
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
+            WHERE pt.playlist_id = $1
+            GROUP BY t.id, pt.position, pt.added_at
+            ORDER BY pt.position ASC, pt.added_at ASC
+        `, [id]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Добавить трек в плейлист
+app.post('/api/playlists/:id/tracks', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { track_id } = req.body;
+        const posResult = await pool.query(
+            'SELECT COALESCE(MAX(position), 0) + 1 AS next_pos FROM public.playlist_tracks WHERE playlist_id = $1',
+            [id]
+        );
+        const nextPos = posResult.rows[0].next_pos;
+        const result = await pool.query(
+            'INSERT INTO public.playlist_tracks (playlist_id, track_id, position) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING *',
+            [id, track_id, nextPos]
+        );
+        res.status(201).json(result.rows[0] || { playlist_id: id, track_id });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Удалить трек из плейлиста
+app.delete('/api/playlists/:id/tracks/:trackId', async (req, res) => {
+    try {
+        const { id, trackId } = req.params;
+        const result = await pool.query(
+            'DELETE FROM public.playlist_tracks WHERE playlist_id = $1 AND track_id = $2 RETURNING *',
+            [id, trackId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found in playlist' });
+        res.json({ message: 'Track removed from playlist' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===================== FILE UPLOAD =====================
 
 // Загрузка аудиофайла
