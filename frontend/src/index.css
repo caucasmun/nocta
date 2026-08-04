@@ -1,5 +1,13 @@
 /*Обнуление*/
 
+/* Запрет масштабирования страницы */
+html, body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Для всей страницы */
 html, body {
   scrollbar-width: none; /* Скрывает скроллбар в Firefox */
