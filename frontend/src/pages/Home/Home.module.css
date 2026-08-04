@@ -11,6 +11,10 @@
   padding: 20px;
   position: relative;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  overscroll-behavior-x: none;
+  touch-action: pan-y;
 }
 
 /* ======================================================= */

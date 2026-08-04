@@ -40,6 +40,7 @@ function Home() {
     const swipeStartRef = useRef(null);
     const wheelTimeoutRef = useRef(null);
     const swipeTimeoutRef = useRef(null);
+    const sectionRef = useRef(null);
     const [swipeAnim, setSwipeAnim] = useState(null);
 
     const {
@@ -345,6 +346,10 @@ function Home() {
     }, [handleNext, handlePrev]);
 
     const handleSwipeMouseDown = useCallback((e) => {
+        // Prevent text/image selection during swipe drag
+        if (!isInteractiveTarget(e.target)) {
+            e.preventDefault();
+        }
         handleSwipeStart(e.clientX, e.clientY, e.target);
     }, [handleSwipeStart]);
 
@@ -379,6 +384,20 @@ function Home() {
             wheelTimeoutRef.current = null;
         }, 600);
     }, [handleNext, handlePrev]);
+
+    // Native wheel listener with passive: false to prevent browser back/forward navigation
+    useEffect(() => {
+        if (!hasStarted) return;
+        const section = sectionRef.current;
+        if (!section) return;
+        const handleWheelNative = (e) => {
+            if (Math.abs(e.deltaX) > 30) {
+                e.preventDefault();
+            }
+        };
+        section.addEventListener('wheel', handleWheelNative, { passive: false });
+        return () => section.removeEventListener('wheel', handleWheelNative);
+    }, [hasStarted]);
 
     const trackArtists = useMemo(() =>
         (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists)) ? currentTrack.track_artists : [],
@@ -419,6 +438,7 @@ function Home() {
 
     return (
         <section
+            ref={sectionRef}
             className={`${cn.home} ${swipeAnim === 'left' ? cn['swipe-left'] : ''} ${swipeAnim === 'right' ? cn['swipe-right'] : ''}`}
             style={{ '--accent-color': accentColor, '--mouse-x': mousePos.x, '--mouse-y': mousePos.y }}
             onMouseDown={handleSwipeMouseDown}
