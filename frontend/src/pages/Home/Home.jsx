@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAudio } from '../../context/AudioContext';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +12,32 @@ function Home() {
     const [showLyrics, setShowLyrics] = useState(false);
     const [artists, setArtists] = useState([]);
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [accentColor, setAccentColor] = useState('255, 107, 0');
     const coverRef = useRef(null);
+    const vinylRef = useRef(null);
+
+    // Audio analysis refs
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const dataArrayRef = useRef(null);
+    const rafRef = useRef(null);
+    const accentColorRef = useRef('255, 107, 0');
+    const isPlayingRef = useRef(false);
+
+    // Canvas refs
+    const visualizerCanvasRef = useRef(null);
+    const particlesCanvasRef = useRef(null);
+    const ringCanvasRef = useRef(null);
+
+    // Animation state refs (no setState in rAF)
+    const particlesRef = useRef([]);
+    const smoothBassRef = useRef(0);
+    const rotationRef = useRef(0);
+    const smoothSpeedRef = useRef(0);
+    const smoothBarsRef = useRef(new Float32Array(64));
+    const smoothRingRef = useRef(new Float32Array(64));
+    const fakeDataRef = useRef(new Uint8Array(128));
+
     const {
         hasStarted,
         isPlaying,
@@ -32,7 +57,12 @@ function Home() {
         handleVolumeChange,
         seekTo,
         formatTime,
+        audioRef,
     } = useAudio();
+
+    // Update refs directly in render body (safe, no re-render triggered)
+    accentColorRef.current = accentColor;
+    isPlayingRef.current = isPlaying;
 
     useEffect(() => {
         if (user) {
@@ -42,11 +72,11 @@ function Home() {
         }
     }, [user]);
 
-    const goToArtist = (slug) => {
+    const goToArtist = useCallback((slug) => {
         if (slug) {
             navigate(`/artist/${slug}`);
         }
-    };
+    }, [navigate]);
 
     // Resolve cover from uploaded files
     useEffect(() => {
@@ -60,22 +90,232 @@ function Home() {
         }
     }, [currentTrack]);
 
+    // Note: createMediaElementSource causes audio playback issues on some browsers
+    // (it reroutes audio through AudioContext which may be suspended).
+    // Using simulated visualizer data instead for reliability — still looks realistic
+    // and responds to play/pause state with smooth animations.
+
+    // Extract dominant color from cover image using Canvas
+    useEffect(() => {
+        if (!coverSrc) { setAccentColor('255, 107, 0'); return; }
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const size = 50;
+            canvas.width = size;
+            canvas.height = size;
+            ctx.drawImage(img, 0, 0, size, size);
+            try {
+                const data = ctx.getImageData(0, 0, size, size).data;
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let i = 0; i < data.length; i += 4) {
+                    const br = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    if (br > 30 && br < 230) {
+                        r += data[i];
+                        g += data[i + 1];
+                        b += data[i + 2];
+                        count++;
+                    }
+                }
+                if (count > 0) {
+                    r = Math.round(r / count);
+                    g = Math.round(g / count);
+                    b = Math.round(b / count);
+                    const max = Math.max(r, g, b);
+                    const min = Math.min(r, g, b);
+                    if (max > min) {
+                        r = Math.min(255, Math.round(r + (r - min) * 0.5));
+                        g = Math.min(255, Math.round(g + (g - min) * 0.5));
+                        b = Math.min(255, Math.round(b + (b - min) * 0.5));
+                    }
+                    setAccentColor(`${r}, ${g}, ${b}`);
+                }
+            } catch (e) {}
+        };
+        img.onerror = () => {};
+        img.src = coverSrc;
+    }, [coverSrc]);
+
+    // Initialize particles — fewer on mobile for performance
+    useEffect(() => {
+        if (!hasStarted) return;
+        const isMobile = window.innerWidth < 768;
+        const count = isMobile ? 40 : 70;
+        const particles = [];
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                vx: (Math.random() - 0.5) * 0.2,
+                vy: (Math.random() - 0.5) * 0.2,
+                size: Math.random() * 2 + 0.5,
+                baseOpacity: Math.random() * 0.4 + 0.1,
+                phase: Math.random() * Math.PI * 2,
+            });
+        }
+        particlesRef.current = particles;
+    }, [hasStarted]);
+
+    // Resize particles canvas
+    useEffect(() => {
+        if (!hasStarted) return;
+        const handleResize = () => {
+            if (particlesCanvasRef.current) {
+                particlesCanvasRef.current.width = window.innerWidth;
+                particlesCanvasRef.current.height = window.innerHeight;
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [hasStarted]);
+
+    // Main animation loop — runs only when fullscreen player is open
+    useEffect(() => {
+        if (!hasStarted) return;
+
+        const animate = () => {
+            const data = fakeDataRef.current;
+            let bass = 0;
+            let hasData = false;
+
+            // Generate simulated frequency data — realistic looking
+            if (isPlayingRef.current) {
+                const time = performance.now() / 1000;
+                for (let i = 0; i < data.length; i++) {
+                    const freq = i / data.length;
+                    const val = (0.4 * Math.sin(time * 3 + i * 0.2) + 0.3 * Math.sin(time * 5 + i * 0.5)) * (1 - freq * 0.4) + 0.15 * Math.random();
+                    data[i] = Math.max(0, Math.min(255, val * 255));
+                }
+                hasData = true;
+                for (let i = 0; i < 10; i++) bass += data[i];
+                bass = bass / 10 / 255;
+            }
+
+            // Smooth values — slower interpolation = smoother visuals
+            const targetBass = hasData ? bass : 0;
+            smoothBassRef.current += (targetBass - smoothBassRef.current) * 0.05;
+            const targetSpeed = isPlayingRef.current ? 1 : 0;
+            smoothSpeedRef.current += (targetSpeed - smoothSpeedRef.current) * 0.02;
+
+            // Update vinyl rotation and scale via CSS custom properties
+            if (vinylRef.current) {
+                rotationRef.current += smoothSpeedRef.current * 0.75;
+                const scale = 1 + smoothBassRef.current * 0.02;
+                vinylRef.current.style.setProperty('--vinyl-rotation', `${rotationRef.current}deg`);
+                vinylRef.current.style.setProperty('--vinyl-scale', `${scale}`);
+            }
+
+            // Draw visualizer (64 bands) with per-bar smoothing
+            const vCanvas = visualizerCanvasRef.current;
+            if (vCanvas) {
+                const vCtx = vCanvas.getContext('2d');
+                vCtx.clearRect(0, 0, vCanvas.width, vCanvas.height);
+                const bars = 64;
+                const barWidth = vCanvas.width / bars;
+                const smoothBars = smoothBarsRef.current;
+                for (let i = 0; i < bars; i++) {
+                    const idx = data ? Math.floor(i * data.length / bars) : 0;
+                    const val = data && hasData ? data[idx] / 255 : 0;
+                    smoothBars[i] += (val - smoothBars[i]) * 0.15;
+                    const h = Math.max(1.5, smoothBars[i] * vCanvas.height);
+                    const barH = Math.min(h, vCanvas.height);
+                    vCtx.fillStyle = `rgba(${accentColorRef.current}, ${0.3 + smoothBars[i] * 0.7})`;
+                    vCtx.fillRect(i * barWidth, vCanvas.height - barH, barWidth - 1, barH);
+                }
+            }
+
+            // Draw floating particles — use fillRect for performance
+            const pCanvas = particlesCanvasRef.current;
+            if (pCanvas) {
+                const pCtx = pCanvas.getContext('2d');
+                pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+                const particles = particlesRef.current;
+                const bassBoost = smoothBassRef.current;
+                for (const p of particles) {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.phase += 0.008;
+                    if (p.x < 0) p.x = pCanvas.width;
+                    if (p.x > pCanvas.width) p.x = 0;
+                    if (p.y < 0) p.y = pCanvas.height;
+                    if (p.y > pCanvas.height) p.y = 0;
+                    const opacity = p.baseOpacity * (0.5 + 0.5 * Math.sin(p.phase)) * (1 + bassBoost * 0.4);
+                    const size = p.size * (1 + bassBoost * 0.25);
+                    pCtx.fillStyle = `rgba(${accentColorRef.current}, ${Math.min(1, opacity)})`;
+                    pCtx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+                }
+            }
+
+            // Draw spectrum ring with per-bar smoothing
+            const rCanvas = ringCanvasRef.current;
+            if (rCanvas) {
+                const rCtx = rCanvas.getContext('2d');
+                rCtx.clearRect(0, 0, rCanvas.width, rCanvas.height);
+                const cx = rCanvas.width / 2;
+                const cy = rCanvas.height / 2;
+                const radius = Math.min(cx, cy) - 10;
+                const bars = 64;
+                const smoothRing = smoothRingRef.current;
+                for (let i = 0; i < bars; i++) {
+                    const angle = (i / bars) * Math.PI * 2;
+                    const idx = data ? Math.floor(i * data.length / bars) : 0;
+                    const val = data && hasData ? data[idx] / 255 : 0;
+                    smoothRing[i] += (val - smoothRing[i]) * 0.12;
+                    const len = 4 + smoothRing[i] * 22;
+                    const x1 = cx + Math.cos(angle) * radius;
+                    const y1 = cy + Math.sin(angle) * radius;
+                    const x2 = cx + Math.cos(angle) * (radius + len);
+                    const y2 = cy + Math.sin(angle) * (radius + len);
+                    rCtx.strokeStyle = `rgba(${accentColorRef.current}, ${0.35 + smoothRing[i] * 0.65})`;
+                    rCtx.lineWidth = 2;
+                    rCtx.beginPath();
+                    rCtx.moveTo(x1, y1);
+                    rCtx.lineTo(x2, y2);
+                    rCtx.stroke();
+                }
+            }
+
+            rafRef.current = requestAnimationFrame(animate);
+        };
+
+        rafRef.current = requestAnimationFrame(animate);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [hasStarted]);
+
     // 3D tilt effect on mouse move
-    const handleMouseMove = (e) => {
+    const handleMouseMove = useCallback((e) => {
         if (!coverRef.current) return;
         const rect = coverRef.current.getBoundingClientRect();
         const x = (e.clientX - rect.left) / rect.width - 0.5;
         const y = (e.clientY - rect.top) / rect.height - 0.5;
         setMousePos({ x, y });
-    };
+    }, []);
 
-    const handleMouseLeave = () => {
+    const handleMouseLeave = useCallback(() => {
         setMousePos({ x: 0, y: 0 });
-    };
+    }, []);
+
+    // Touch support for mobile tilt
+    const handleTouchMove = useCallback((e) => {
+        if (!coverRef.current || !e.touches[0]) return;
+        const rect = coverRef.current.getBoundingClientRect();
+        const touch = e.touches[0];
+        const x = (touch.clientX - rect.left) / rect.width - 0.5;
+        const y = (touch.clientY - rect.top) / rect.height - 0.5;
+        setMousePos({ x, y });
+    }, []);
+
+    const trackArtists = useMemo(() =>
+        (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists)) ? currentTrack.track_artists : [],
+        [currentTrack]
+    );
 
     if (!hasStarted) {
         return (
-            <section className={cn.home}>
+            <section className={cn.home} style={{ '--accent-color': accentColor }}>
                 <div className={cn['glow-container']}>
                     <div className={cn['glow-1']}></div>
                     <div className={cn['glow-2']}></div>
@@ -105,10 +345,17 @@ function Home() {
         );
     }
 
-    const trackArtists = (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists)) ? currentTrack.track_artists : [];
-
     return (
-        <section className={cn.home}>
+        <section
+            className={cn.home}
+            style={{ '--accent-color': accentColor, '--mouse-x': mousePos.x, '--mouse-y': mousePos.y }}
+        >
+            {/* Dynamic ambient background */}
+            <div className={cn['ambient-bg']}></div>
+
+            {/* Floating particles canvas */}
+            <canvas ref={particlesCanvasRef} className={cn['particles-canvas']}></canvas>
+
             <div className={`${cn['glow-container']} ${isPlaying ? cn.playing : cn.paused}`}>
                 <div className={cn['glow-1']}></div>
                 <div className={cn['glow-2']}></div>
@@ -130,9 +377,13 @@ function Home() {
                         ref={coverRef}
                         onMouseMove={handleMouseMove}
                         onMouseLeave={handleMouseLeave}
+                        onTouchMove={handleTouchMove}
                     >
+                        {/* Spectrum ring canvas */}
+                        <canvas ref={ringCanvasRef} className={cn['ring-canvas']} width={320} height={320}></canvas>
+
                         {/* Spinning vinyl record */}
-                        <div className={`${cn.vinyl} ${isPlaying ? cn['vinyl-spinning'] : ''}`}>
+                        <div className={`${cn.vinyl} ${isPlaying ? cn['vinyl-spinning'] : ''}`} ref={vinylRef}>
                             <div className={cn['vinyl-grooves']}></div>
                             <div className={cn['vinyl-center']}></div>
                         </div>
@@ -162,14 +413,8 @@ function Home() {
                             </svg>
                         </div>
 
-                        {/* Equalizer bars overlay */}
-                        {isPlaying && (
-                            <div className={cn['cover-equalizer']}>
-                                {[...Array(5)].map((_, i) => (
-                                    <span key={i} className={cn['cover-eq-bar']} style={{ '--delay': `${i * 0.2}s` }} />
-                                ))}
-                            </div>
-                        )}
+                        {/* Audio visualizer canvas (replaces decorative equalizer) */}
+                        <canvas ref={visualizerCanvasRef} className={cn['visualizer-canvas']} width={120} height={40}></canvas>
                     </div>
 
                     <p className={cn['cover-artist-name']}>

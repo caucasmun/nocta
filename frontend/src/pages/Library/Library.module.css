@@ -4,6 +4,7 @@
     color: #ffffff;
     font-family: 'Montserrat', sans-serif;
     padding: 40px;
+    overflow-x: hidden;
 }
 
 .header {
@@ -50,6 +51,7 @@
 
 .content {
     max-width: 900px;
+    width: 100%;
 }
 
 .empty {
@@ -102,6 +104,8 @@
     padding: 4px;
     border-radius: 8px;
     transition: background-color 0.2s;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .trackItem:hover {
@@ -116,6 +120,7 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 6px;
+    min-width: 0;
 }
 
 .trackArt {
@@ -171,6 +176,9 @@
     margin: 0;
     text-decoration: none;
     transition: color 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .trackArtist:hover {
@@ -222,6 +230,8 @@
     padding: 4px;
     border-radius: 8px;
     transition: background-color 0.2s;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .artistItem:hover {
@@ -238,6 +248,7 @@
     border-radius: 6px;
     text-decoration: none;
     color: inherit;
+    min-width: 0;
 }
 
 .artistPhoto {
@@ -273,6 +284,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
 }
 
 .artistName {
@@ -280,6 +292,9 @@
     font-weight: 600;
     margin: 0;
     color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Playlist styles */

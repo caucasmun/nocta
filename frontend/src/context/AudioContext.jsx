@@ -264,6 +264,7 @@ export function AudioProvider({ children }) {
             progress, currentTime, duration, volume, isMuted, currentTrack,
             handleFirstPlay, togglePlay, handleNext, handlePrev,
             toggleMute, handleVolumeChange, seekTo, formatTime, playTrack, reloadTracks, tracksList,
+            audioRef,
         }}>
             {children}
         </AudioContext.Provider>
