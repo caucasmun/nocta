@@ -37,6 +37,10 @@ function Home() {
     const smoothBarsRef = useRef(new Float32Array(64));
     const smoothRingRef = useRef(new Float32Array(64));
     const fakeDataRef = useRef(new Uint8Array(128));
+    const swipeStartRef = useRef(null);
+    const wheelTimeoutRef = useRef(null);
+    const swipeTimeoutRef = useRef(null);
+    const [swipeAnim, setSwipeAnim] = useState(null);
 
     const {
         hasStarted,
@@ -308,6 +312,74 @@ function Home() {
         setMousePos({ x, y });
     }, []);
 
+    // Swipe gesture: desktop mouse drag, mobile touch, touchpad two-finger
+    const SWIPE_THRESHOLD = 80;
+
+    const isInteractiveTarget = (target) => {
+        return target.closest?.('button, input, a, .track-center, .volume-block, .icon-btn, .control-btn');
+    };
+
+    const handleSwipeStart = useCallback((clientX, clientY, target) => {
+        if (isInteractiveTarget(target)) return;
+        swipeStartRef.current = { x: clientX, y: clientY, time: Date.now() };
+    }, []);
+
+    const handleSwipeEnd = useCallback((clientX, clientY) => {
+        if (!swipeStartRef.current) return;
+        const start = swipeStartRef.current;
+        swipeStartRef.current = null;
+        const dx = clientX - start.x;
+        const dy = clientY - start.y;
+        const dt = Date.now() - start.time;
+        if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 1000) {
+            if (dx < 0) {
+                setSwipeAnim('left');
+                handleNext();
+            } else {
+                setSwipeAnim('right');
+                handlePrev();
+            }
+            if (swipeTimeoutRef.current) clearTimeout(swipeTimeoutRef.current);
+            swipeTimeoutRef.current = setTimeout(() => setSwipeAnim(null), 400);
+        }
+    }, [handleNext, handlePrev]);
+
+    const handleSwipeMouseDown = useCallback((e) => {
+        handleSwipeStart(e.clientX, e.clientY, e.target);
+    }, [handleSwipeStart]);
+
+    const handleSwipeMouseUp = useCallback((e) => {
+        handleSwipeEnd(e.clientX, e.clientY);
+    }, [handleSwipeEnd]);
+
+    const handleSwipeTouchStart = useCallback((e) => {
+        if (!e.touches[0]) return;
+        handleSwipeStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+    }, [handleSwipeStart]);
+
+    const handleSwipeTouchEnd = useCallback((e) => {
+        if (!e.changedTouches[0]) return;
+        handleSwipeEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }, [handleSwipeEnd]);
+
+    // Touchpad two-finger horizontal swipe (wheel event)
+    const handleSwipeWheel = useCallback((e) => {
+        if (Math.abs(e.deltaX) < 30) return;
+        if (wheelTimeoutRef.current) return;
+        if (e.deltaX > 0) {
+            setSwipeAnim('left');
+            handleNext();
+        } else {
+            setSwipeAnim('right');
+            handlePrev();
+        }
+        if (swipeTimeoutRef.current) clearTimeout(swipeTimeoutRef.current);
+        swipeTimeoutRef.current = setTimeout(() => setSwipeAnim(null), 400);
+        wheelTimeoutRef.current = setTimeout(() => {
+            wheelTimeoutRef.current = null;
+        }, 600);
+    }, [handleNext, handlePrev]);
+
     const trackArtists = useMemo(() =>
         (currentTrack?.track_artists && Array.isArray(currentTrack.track_artists)) ? currentTrack.track_artists : [],
         [currentTrack]
@@ -347,8 +419,13 @@ function Home() {
 
     return (
         <section
-            className={cn.home}
+            className={`${cn.home} ${swipeAnim === 'left' ? cn['swipe-left'] : ''} ${swipeAnim === 'right' ? cn['swipe-right'] : ''}`}
             style={{ '--accent-color': accentColor, '--mouse-x': mousePos.x, '--mouse-y': mousePos.y }}
+            onMouseDown={handleSwipeMouseDown}
+            onMouseUp={handleSwipeMouseUp}
+            onTouchStart={handleSwipeTouchStart}
+            onTouchEnd={handleSwipeTouchEnd}
+            onWheel={handleSwipeWheel}
         >
             {/* Dynamic ambient background */}
             <div className={cn['ambient-bg']}></div>

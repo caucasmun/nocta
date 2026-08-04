@@ -435,6 +435,26 @@
 .lyrics-panel-body::-webkit-scrollbar-thumb:hover { background-color: rgba(255, 255, 255, 0.2); }
 
 /* ======================================================= */
+/* SWIPE ANIMATION */
+/* ======================================================= */
+.swipe-left .cover-wrapper {
+    animation: swipeLeftAnim 0.4s ease;
+}
+.swipe-right .cover-wrapper {
+    animation: swipeRightAnim 0.4s ease;
+}
+@keyframes swipeLeftAnim {
+    0% { transform: translateY(0) scale(1) translateX(0); opacity: 1; }
+    30% { transform: translateY(0) scale(1) translateX(-60px); opacity: 0.3; }
+    100% { transform: translateY(0) scale(1) translateX(0); opacity: 1; }
+}
+@keyframes swipeRightAnim {
+    0% { transform: translateY(0) scale(1) translateX(0); opacity: 1; }
+    30% { transform: translateY(0) scale(1) translateX(60px); opacity: 0.3; }
+    100% { transform: translateY(0) scale(1) translateX(0); opacity: 1; }
+}
+
+/* ======================================================= */
 /* MOBILE — improved adaptation */
 /* ======================================================= */
 @media (max-width: 768px) {
