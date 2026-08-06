@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { getArtists, getTracks, getFile } from '../../data/db';
+import { getAllArtists, getAllTracks, getFile } from '../../data/db';
 import cn from './Artist.module.css';
 
 function Artist() {
@@ -23,14 +23,14 @@ function Artist() {
         let cancelled = false;
 
         (async () => {
-            const artists = await getArtists(user.id);
+            const artists = await getAllArtists(user.id);
             if (cancelled) return;
             const makeSlug = (name) => (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || '';
             const foundArtist = artists.find(a => a.slug === slug || makeSlug(a.artist) === slug);
             setArtist(foundArtist);
 
             if (foundArtist) {
-                const allTracks = await getTracks(user.id);
+                const allTracks = await getAllTracks(user.id);
                 if (cancelled) return;
                 const filtered = allTracks.filter(t => {
                     if (t.track_artists && Array.isArray(t.track_artists)) {

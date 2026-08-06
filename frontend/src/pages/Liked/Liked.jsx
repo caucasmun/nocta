@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { getTracks, getLikedTracks, getArtists, getFile } from '../../data/db';
+import { getAllTracks, getLikedTracks, getArtists, getFile } from '../../data/db';
 import cn from './Liked.module.css';
 
 function Liked() {
@@ -22,7 +22,7 @@ function Liked() {
         let cancelled = false;
         (async () => {
             const [allTracks, likedIds, userArtists] = await Promise.all([
-                getTracks(user.id),
+                getAllTracks(user.id),
                 getLikedTracks(user.id),
                 getArtists(user.id)
             ]);

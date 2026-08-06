@@ -53,6 +53,24 @@ export async function getTracks(userId) {
     }
 }
 
+// Все доступные треки: глобальные (предустановленные) + треки пользователя
+export async function getAllTracks(userId) {
+    try {
+        return await api.fetchAllTracks(userId);
+    } catch {
+        return [];
+    }
+}
+
+// Все доступные артисты: глобальные (предустановленные) + артисты пользователя
+export async function getAllArtists(userId) {
+    try {
+        return await api.fetchAllArtists(userId);
+    } catch {
+        return [];
+    }
+}
+
 export async function addTrack(userId, track) {
     try {
         // Create the track in the database with multiple artists support
@@ -143,13 +161,18 @@ export async function syncUserLibrary(userId) {
     }
 }
 
-// ===== Liked tracks =====
+// ===== Liked tracks (лайки привязаны к пользователю) =====
 export async function toggleLike(userId, trackId) {
     try {
-        const track = await api.fetchTrack(trackId);
-        const newLiked = !track.isliked;
-        await api.updateTrack(trackId, { isliked: newLiked });
-        return newLiked;
+        const liked = await api.fetchLikedTrackIds(userId);
+        const isLiked = liked.includes(trackId);
+        if (isLiked) {
+            await api.unlikeTrack(userId, trackId);
+            return false;
+        } else {
+            await api.likeTrack(userId, trackId);
+            return true;
+        }
     } catch (err) {
         console.error('Error toggling like:', err);
         return false;
@@ -158,8 +181,7 @@ export async function toggleLike(userId, trackId) {
 
 export async function getLikedTracks(userId) {
     try {
-        const tracks = await api.fetchTracks();
-        return tracks.filter(t => t.isliked).map(t => t.id);
+        return await api.fetchLikedTrackIds(userId);
     } catch {
         return [];
     }

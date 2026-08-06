@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
-import { getTracks, getArtists, getFile } from '../../data/db';
+import { getAllTracks, getAllArtists, getFile } from '../../data/db';
 import cn from './Search.module.css';
 
 function Search() {
@@ -18,8 +18,8 @@ function Search() {
             let cancelled = false;
             (async () => {
                 const [userArtists, userTracks] = await Promise.all([
-                    getArtists(user.id),
-                    getTracks(user.id)
+                    getAllArtists(user.id),
+                    getAllTracks(user.id)
                 ]);
                 if (cancelled) return;
                 setArtists(userArtists);

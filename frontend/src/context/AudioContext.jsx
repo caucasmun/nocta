@@ -1,16 +1,18 @@
 import { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import { getTracks, getFile } from '../data/db';
+import { getAllTracks, getFile } from '../data/db';
 import { toggleLike as toggleLikeDB, getLikedTracks } from '../data/db';
 import { savePlaybackState, fetchPlaybackState } from '../data/api';
 
-function getRandomTrack(tracksList, excludeId = null) {
-    const available = excludeId
-        ? tracksList.filter(t => t.id !== excludeId)
-        : tracksList;
-    if (available.length === 0) return null;
-    return available[Math.floor(Math.random() * available.length)];
+// Перемешивание массива (алгоритм Фишера-Йетса)
+function shuffleArray(arr) {
+    const result = [...arr];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
 }
 
 const AudioContext = createContext(null);
@@ -32,14 +34,22 @@ export function AudioProvider({ children }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [savedTrack, setSavedTrack] = useState(null);
     const [savedProgress, setSavedProgress] = useState(0);
+    // Очередь воспроизведения: перемешанный список треков без повторов,
+    // пока не пройдут все треки
+    const queueRef = useRef([]);
+    const queueIndexRef = useRef(-1);
 
     const audioRef = useRef(null);
     const fadeIntervalRef = useRef(null);
 
     const loadTracks = useCallback(async (uid) => {
         if (!uid) { setTracksList([]); return; }
-        const tracks = await getTracks(uid);
+        // Загружаем все доступные треки: глобальные (предустановленные) + свои
+        const tracks = await getAllTracks(uid);
         setTracksList(tracks);
+        // Сбрасываем очередь при загрузке нового списка треков
+        queueRef.current = [];
+        queueIndexRef.current = -1;
     }, []);
 
     // Load saved playback state when user changes
@@ -108,6 +118,21 @@ export function AudioProvider({ children }) {
         window.__audioState = { currentTrack, currentTime };
     }, [currentTrack, currentTime]);
 
+    // Получить следующий трек из очереди (без повторов, пока не пройдут все)
+    const getNextFromQueue = useCallback((excludeId = null) => {
+        // Если очередь пуста или мы прошли все треки — создаём новую перемешанную очередь
+        if (queueRef.current.length === 0 || queueIndexRef.current >= queueRef.current.length - 1) {
+            const available = tracksList.filter(t => t.id !== excludeId);
+            if (available.length === 0) return null;
+            queueRef.current = shuffleArray(available);
+            queueIndexRef.current = 0;
+            return queueRef.current[0];
+        }
+        // Иначе берём следующий трек из очереди
+        queueIndexRef.current++;
+        return queueRef.current[queueIndexRef.current];
+    }, [tracksList]);
+
     const playTrack = useCallback(async (track) => {
         if (!user) { navigate('/auth'); return; }
         if (!audioRef.current) audioRef.current = new Audio();
@@ -168,13 +193,13 @@ export function AudioProvider({ children }) {
     useEffect(() => {
         if (!audioRef.current) return;
         const handleEnded = () => {
-            const next = getRandomTrack(tracksList, currentTrack?.id);
+            const next = getNextFromQueue(currentTrack?.id);
             if (next) playTrack(next);
             else if (currentTrack) playTrack(currentTrack);
         };
         audioRef.current.addEventListener('ended', handleEnded);
         return () => { if (audioRef.current) audioRef.current.removeEventListener('ended', handleEnded); };
-    }, [currentTrack, playTrack, tracksList]);
+    }, [currentTrack, playTrack, tracksList, getNextFromQueue]);
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -193,16 +218,16 @@ export function AudioProvider({ children }) {
     const handleFirstPlay = useCallback(() => {
         if (!user) { navigate('/auth'); return; }
         if (tracksList.length === 0) return;
-        // If we have a saved track, resume it; otherwise play random
+        // If we have a saved track, resume it; otherwise play random from queue
         if (savedTrack) {
             const trackInList = tracksList.find(t => t.id === savedTrack.id);
             if (trackInList) playTrack(trackInList);
             else playTrack(savedTrack);
         } else {
-            const first = getRandomTrack(tracksList);
+            const first = getNextFromQueue();
             if (first) playTrack(first);
         }
-    }, [playTrack, tracksList, user, navigate, savedTrack]);
+    }, [playTrack, tracksList, user, navigate, savedTrack, getNextFromQueue]);
 
     const togglePlay = useCallback(() => {
         if (!audioRef.current || !currentTrack) return;
@@ -221,23 +246,25 @@ export function AudioProvider({ children }) {
 
     const handleNext = useCallback(() => {
         if (!user) { navigate('/auth'); return; }
-        const avail = tracksList.filter(t => t.id !== currentTrack?.id);
-        if (avail.length === 0 || tracksList.length === 1) {
+        if (tracksList.length === 0) return;
+        if (tracksList.length === 1) {
             if (currentTrack && audioRef.current) { audioRef.current.currentTime = 0; setCurrentTime(0); setProgress(0); if (!isPlaying) { audioRef.current.play().catch(() => {}); setIsPlaying(true); } }
             return;
         }
-        playTrack(avail[Math.floor(Math.random() * avail.length)]);
-    }, [currentTrack, playTrack, isPlaying, tracksList, user, navigate]);
+        const next = getNextFromQueue(currentTrack?.id);
+        if (next) playTrack(next);
+    }, [currentTrack, playTrack, isPlaying, tracksList, user, navigate, getNextFromQueue]);
 
     const handlePrev = useCallback(() => {
         if (!user) { navigate('/auth'); return; }
-        const avail = tracksList.filter(t => t.id !== currentTrack?.id);
-        if (avail.length === 0 || tracksList.length === 1) {
+        if (tracksList.length === 0) return;
+        if (tracksList.length === 1) {
             if (currentTrack && audioRef.current) { audioRef.current.currentTime = 0; setCurrentTime(0); setProgress(0); if (!isPlaying) { audioRef.current.play().catch(() => {}); setIsPlaying(true); } }
             return;
         }
-        playTrack(avail[Math.floor(Math.random() * avail.length)]);
-    }, [currentTrack, playTrack, isPlaying, tracksList, user, navigate]);
+        const next = getNextFromQueue(currentTrack?.id);
+        if (next) playTrack(next);
+    }, [currentTrack, playTrack, isPlaying, tracksList, user, navigate, getNextFromQueue]);
 
     const toggleLike = useCallback(async () => {
         if (!currentTrack || !userId) { navigate('/auth'); return; }

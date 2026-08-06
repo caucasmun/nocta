@@ -180,6 +180,16 @@ export async function updateTrackArtists(trackId, artistIds) {
     });
 }
 
+// ==================== ALL TRACKS & ARTISTS (GLOBAL + USER) ====================
+
+export async function fetchAllTracks(userId) {
+    return request(`/users/${userId}/all-tracks`);
+}
+
+export async function fetchAllArtists(userId) {
+    return request(`/users/${userId}/all-artists`);
+}
+
 // ==================== USER LIBRARY TRACKS ====================
 
 export async function fetchUserLibraryTracks(userId) {
@@ -221,6 +231,24 @@ export async function removeArtistFromLibrary(userId, artistId) {
 export async function syncUserLibrary(userId) {
     return request(`/users/${userId}/library/sync`, {
         method: 'POST',
+    });
+}
+
+// ==================== USER LIKED TRACKS ====================
+
+export async function fetchLikedTrackIds(userId) {
+    return request(`/users/${userId}/liked-tracks`);
+}
+
+export async function likeTrack(userId, trackId) {
+    return request(`/users/${userId}/liked-tracks/${trackId}`, {
+        method: 'POST',
+    });
+}
+
+export async function unlikeTrack(userId, trackId) {
+    return request(`/users/${userId}/liked-tracks/${trackId}`, {
+        method: 'DELETE',
     });
 }
 

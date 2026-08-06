@@ -48,6 +48,14 @@ CREATE TABLE IF NOT EXISTS public.user_library_artists (
     PRIMARY KEY (user_id, artist_id)
 );
 
+-- Таблица лайков пользователей (лайки привязаны к пользователю, а не к треку)
+CREATE TABLE IF NOT EXISTS public.user_liked_tracks (
+    user_id INT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    track_id INT NOT NULL REFERENCES public.tracks(id) ON DELETE CASCADE,
+    liked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, track_id)
+);
+
 -- Таблица для сохранения состояния воспроизведения
 CREATE TABLE IF NOT EXISTS public.user_playback_state (
     user_id INT NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -81,6 +89,8 @@ CREATE TABLE IF NOT EXISTS public.playlist_tracks (
 CREATE INDEX IF NOT EXISTS idx_tracks_user_id ON public.tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_tracks_user ON public.user_library_tracks(user_id);
 CREATE INDEX IF NOT EXISTS idx_library_artists_user ON public.user_library_artists(user_id);
+CREATE INDEX IF NOT EXISTS idx_liked_tracks_user ON public.user_liked_tracks(user_id);
+CREATE INDEX IF NOT EXISTS idx_liked_tracks_track ON public.user_liked_tracks(track_id);
 CREATE INDEX IF NOT EXISTS idx_playback_user ON public.user_playback_state(user_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_track ON public.track_artists(track_id);
 CREATE INDEX IF NOT EXISTS idx_track_artists_artist ON public.track_artists(artist_id);

@@ -6,6 +6,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const { seedAllUsers } = require('./seed_default_content');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -619,6 +621,78 @@ app.put('/api/tracks/:trackId/artists', async (req, res) => {
     }
 });
 
+// ===================== ALL TRACKS (GLOBAL + USER) =====================
+
+// Получить все доступные треки: глобальные (user_id = NULL) + треки пользователя
+app.get('/api/users/:userId/all-tracks', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await pool.query(`
+            SELECT t.*,
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'artist_id', a.id,
+                               'artist', a.artist,
+                               'slug', a.slug,
+                               'photo_url', a.photo_url,
+                               'color', a.color,
+                               'is_primary', ta.is_primary
+                           ) ORDER BY ta.is_primary DESC
+                       ) FILTER (WHERE a.id IS NOT NULL),
+                       '[]'::json
+                   ) AS track_artists,
+                   (SELECT a.artist FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist,
+                   (SELECT a.slug FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_slug,
+                   (SELECT a.photo_url FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_photo_url,
+                   (SELECT a.color FROM public.track_artists ta2
+                    JOIN public.artists a ON ta2.artist_id = a.id
+                    WHERE ta2.track_id = t.id AND ta2.is_primary = true
+                    LIMIT 1) AS artist_color
+            FROM public.tracks t
+            LEFT JOIN public.track_artists ta ON t.id = ta.track_id
+            LEFT JOIN public.artists a ON ta.artist_id = a.id
+            WHERE t.user_id IS NULL OR t.user_id = $1
+            GROUP BY t.id
+            ORDER BY t.id DESC
+        `, [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Получить всех доступных артистов: глобальные + артисты пользователя
+app.get('/api/users/:userId/all-artists', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await pool.query(`
+            SELECT DISTINCT a.*
+            FROM public.artists a
+            WHERE a.id IN (
+                SELECT ta.artist_id FROM public.track_artists ta
+                JOIN public.tracks t ON ta.track_id = t.id
+                WHERE t.user_id IS NULL OR t.user_id = $1
+            )
+            ORDER BY a.id
+        `, [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ===================== USER LIBRARY TRACKS =====================
 
 // Получить библиотеку треков пользователя (без дубликатов, с массивом исполнителей)
@@ -697,6 +771,54 @@ app.delete('/api/users/:userId/library/tracks/:trackId', async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Track not found in library' });
         res.json({ message: 'Track removed from library' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ===================== USER LIKED TRACKS =====================
+
+// Получить ID лайкнутых треков пользователя
+app.get('/api/users/:userId/liked-tracks', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const result = await pool.query(
+            'SELECT track_id FROM public.user_liked_tracks WHERE user_id = $1',
+            [userId]
+        );
+        res.json(result.rows.map(r => r.track_id));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Лайкнуть трек
+app.post('/api/users/:userId/liked-tracks/:trackId', async (req, res) => {
+    try {
+        const { userId, trackId } = req.params;
+        const result = await pool.query(
+            'INSERT INTO public.user_liked_tracks (user_id, track_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+            [userId, trackId]
+        );
+        res.status(201).json(result.rows[0] || { user_id: userId, track_id: trackId });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Убрать лайк с трека
+app.delete('/api/users/:userId/liked-tracks/:trackId', async (req, res) => {
+    try {
+        const { userId, trackId } = req.params;
+        const result = await pool.query(
+            'DELETE FROM public.user_liked_tracks WHERE user_id = $1 AND track_id = $2 RETURNING *',
+            [userId, trackId]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Track not liked' });
+        res.json({ message: 'Track unliked' });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
@@ -1079,4 +1201,10 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
     await initDB();
+    // Добавить предустановленные треки и исполнителей всем существующим пользователям
+    try {
+        await seedAllUsers();
+    } catch (err) {
+        console.error('Error seeding default content for existing users:', err.message);
+    }
 });
