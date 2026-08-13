@@ -54,6 +54,19 @@ function Library() {
         });
     }, [tracks]);
 
+    // Resolve artist photos (относительные /uploads/... пути через API origin)
+    useEffect(() => {
+        artists.forEach(artist => {
+            if (artist.photo_url && !artist.photo_url.startsWith('http') && !artist.photo_url.startsWith('data:')) {
+                getFile(artist.photo_url).then(url => {
+                    if (url) {
+                        setArtists(prev => prev.map(a => a.id === artist.id ? { ...a, photo_url: url } : a));
+                    }
+                });
+            }
+        });
+    }, [artists]);
+
     const handleDeleteTrack = async (trackId) => {
         if (!user) return;
         await deleteTrack(user.id, trackId);

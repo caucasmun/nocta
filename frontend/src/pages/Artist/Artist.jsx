@@ -47,6 +47,13 @@ function Artist() {
                         });
                     }
                 });
+
+                // Разрешаем относительный путь фото исполнителя через API origin
+                if (foundArtist.photo_url && !foundArtist.photo_url.startsWith('http') && !foundArtist.photo_url.startsWith('data:')) {
+                    getFile(foundArtist.photo_url).then(url => {
+                        if (url && !cancelled) setArtist(prev => prev ? { ...prev, photo_url: url } : prev);
+                    });
+                }
             }
         })();
 
