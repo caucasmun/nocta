@@ -1,5 +1,10 @@
 <p align="center">
-  <img src="frontend/public/icon.png" alt="Nocta Logo" width="120" />
+  <svg width="28" height="28" viewBox="0 0 32 32" fill="none" style="flex-shrink: 0">
+    <circle cx="16" cy="16" r="16" fill="#1db954"/>
+    <path d="M10 22V8l12 4v10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="10" cy="22" r="2.5" fill="#fff"/>
+    <circle cx="22" cy="22" r="2.5" fill="#fff"/>
+  </svg>
 </p>
 
 <h1 align="center">🎧 Nocta — музыкальное приложение</h1>
