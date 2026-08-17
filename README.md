@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/favicon.svg" alt="Nocta Logo" width="120" />
+  <img src="frontend/public/icon.png" alt="Nocta Logo" width="120" />
 </p>
 
 <h1 align="center">🎧 Nocta — музыкальное приложение</h1>
