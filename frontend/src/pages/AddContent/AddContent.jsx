@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useAudio } from '../../context/AudioContext';
 import { uploadAudio, uploadImage, API_ORIGIN } from '../../data/api';
-import { addTrack, addArtist, getArtists } from '../../data/db';
+import { addTrack, addArtist, getAllArtists } from '../../data/db';
 import cn from './AddContent.module.css';
 
 function AddContent() {
@@ -38,7 +38,7 @@ function AddContent() {
     // Load existing artists for dropdown
     useEffect(() => {
         if (user) {
-            getArtists(user.id).then(artists => {
+            getAllArtists(user.id).then(artists => {
                 setExistingArtists(artists);
             });
         }
@@ -213,7 +213,7 @@ function AddContent() {
             });
 
             // Refresh artists list after adding track
-            getArtists(user.id).then(setExistingArtists);
+            getAllArtists(user.id).then(setExistingArtists);
 
             reloadTracks();
 
@@ -261,7 +261,7 @@ function AddContent() {
             });
 
             // Refresh artists list
-            getArtists(user.id).then(setExistingArtists);
+            getAllArtists(user.id).then(setExistingArtists);
 
             reloadTracks();
 
