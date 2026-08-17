@@ -673,6 +673,7 @@ app.get('/api/users/:userId/all-tracks', async (req, res) => {
 });
 
 // Получить всех доступных артистов: глобальные + артисты пользователя
+// (включая созданных пользователем, даже если у них ещё нет треков)
 app.get('/api/users/:userId/all-artists', async (req, res) => {
     try {
         const { userId } = req.params;
@@ -683,6 +684,10 @@ app.get('/api/users/:userId/all-artists', async (req, res) => {
                 SELECT ta.artist_id FROM public.track_artists ta
                 JOIN public.tracks t ON ta.track_id = t.id
                 WHERE t.user_id IS NULL OR t.user_id = $1
+            )
+            OR a.id IN (
+                SELECT ula.artist_id FROM public.user_library_artists ula
+                WHERE ula.user_id = $1
             )
             ORDER BY a.id
         `, [userId]);

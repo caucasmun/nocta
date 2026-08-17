@@ -38,6 +38,8 @@ export function AudioProvider({ children }) {
     // пока не пройдут все треки
     const queueRef = useRef([]);
     const queueIndexRef = useRef(-1);
+    // История проигранных треков: порядок воспроизведения (для кнопки "назад")
+    const playedRef = useRef([]);
 
     const audioRef = useRef(null);
     const fadeIntervalRef = useRef(null);
@@ -47,9 +49,10 @@ export function AudioProvider({ children }) {
         // Загружаем все доступные треки: глобальные (предустановленные) + свои
         const tracks = await getAllTracks(uid);
         setTracksList(tracks);
-        // Сбрасываем очередь при загрузке нового списка треков
+        // Сбрасываем очередь и историю при загрузке нового списка треков
         queueRef.current = [];
         queueIndexRef.current = -1;
+        playedRef.current = [];
     }, []);
 
     // Load saved playback state when user changes
@@ -120,11 +123,22 @@ export function AudioProvider({ children }) {
 
     // Получить следующий трек из очереди (без повторов, пока не пройдут все)
     const getNextFromQueue = useCallback((excludeId = null) => {
+        const playedSet = new Set(playedRef.current);
+        // Треки, которые ещё не играли (исключаем текущий и все из истории)
+        const notPlayed = tracksList.filter(t => t.id !== excludeId && !playedSet.has(t.id));
+        // Если все треки уже проиграны — начинаем новый цикл (сбрасываем историю)
+        if (notPlayed.length === 0) {
+            playedRef.current = [];
+            const fresh = tracksList.filter(t => t.id !== excludeId);
+            if (fresh.length === 0) return null;
+            queueRef.current = shuffleArray(fresh);
+            queueIndexRef.current = 0;
+            return queueRef.current[0];
+        }
         // Если очередь пуста или мы прошли все треки — создаём новую перемешанную очередь
+        // из ещё не проигранных треков
         if (queueRef.current.length === 0 || queueIndexRef.current >= queueRef.current.length - 1) {
-            const available = tracksList.filter(t => t.id !== excludeId);
-            if (available.length === 0) return null;
-            queueRef.current = shuffleArray(available);
+            queueRef.current = shuffleArray(notPlayed);
             queueIndexRef.current = 0;
             return queueRef.current[0];
         }
@@ -152,6 +166,8 @@ export function AudioProvider({ children }) {
         if (isNewTrack) {
             audio.pause();
             audio.src = src;
+            // Добавляем трек в историю проигранных (без дубликатов)
+            if (!playedRef.current.includes(track.id)) playedRef.current.push(track.id);
         }
 
         const onLoaded = () => {
@@ -262,6 +278,15 @@ export function AudioProvider({ children }) {
             if (currentTrack && audioRef.current) { audioRef.current.currentTime = 0; setCurrentTime(0); setProgress(0); if (!isPlaying) { audioRef.current.play().catch(() => {}); setIsPlaying(true); } }
             return;
         }
+        // Если есть предыдущий трек в истории — возвращаемся к нему
+        if (playedRef.current.length > 1) {
+            // Убираем текущий трек из конца истории, чтобы не дублировать
+            playedRef.current.pop();
+            const prevId = playedRef.current[playedRef.current.length - 1];
+            const prevTrack = tracksList.find(t => t.id === prevId);
+            if (prevTrack) { playTrack(prevTrack); return; }
+        }
+        // Иначе — следующий из очереди
         const next = getNextFromQueue(currentTrack?.id);
         if (next) playTrack(next);
     }, [currentTrack, playTrack, isPlaying, tracksList, user, navigate, getNextFromQueue]);
